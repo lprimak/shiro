@@ -56,6 +56,10 @@
     </ciManagement>
 
     <distributionManagement>
+        <repository>
+            <id>hope-nexus-artifacts</id>
+            <url>https://nexus.hope.nyc.ny.us/repository/maven-releases</url>
+        </repository>
         <site>
             <id>shiro.website</id>
             <name>Apache Shiro Site</name>
@@ -183,7 +187,7 @@
             <email>jhaile@apache.org</email>
             <url>http://www.jeremyhaile.com</url>
             <organization>Mobilization Labs</organization>
-            <organizationUrl>http://www.mobilizationlabs.com</organizationUrl>            
+            <organizationUrl>http://www.mobilizationlabs.com</organizationUrl>
             <timezone>-5</timezone>
         </developer>
         <developer>
@@ -686,8 +690,8 @@
                     <autoVersionSubmodules>true</autoVersionSubmodules>
                     <!-- This configuration copied from apache:apache:7 parent pom -->
                     <useReleaseProfile>false</useReleaseProfile>
-                    <goals>deploy site site:stage</goals>
-                    <arguments>-Pdocs,apache-release</arguments>
+                    <goals>deploy</goals>
+                    <arguments>-Pdocs,apache-release -Dmaven.test.failure.ignore=true -DtrimStackTrace=false -Dmaven.install.skip=true</arguments>
                     <mavenExecutorId>forked-path</mavenExecutorId>
                 </configuration>
             </plugin>
@@ -697,8 +701,9 @@
                 <version>1.6.13</version>
                 <extensions>true</extensions>
                 <configuration>
-                    <nexusUrl>https://repository.apache.org</nexusUrl>
-                    <serverId>apache.releases.https</serverId>
+                    <nexusUrl>https://nexus.hope.nyc.ny.us/</nexusUrl>
+                    <serverId>hope-nexus-artifacts</serverId>
+                    <skipStaging>true</skipStaging>
                     <skipNexusStagingDeployMojo>${nexus.deploy.skip}</skipNexusStagingDeployMojo>
                 </configuration>
             </plugin>
@@ -1367,7 +1372,7 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
-    
+
     <!-- Note that reporting may fail with lower settings than something like: MAVEN_OPTS="-X512m -XX:MaxPermSize=128m" -->
     <reporting>
         <plugins>
@@ -1518,7 +1523,7 @@
                         </reports>
                     </reportSet>
                 </reportSets>
-	
+
             </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
