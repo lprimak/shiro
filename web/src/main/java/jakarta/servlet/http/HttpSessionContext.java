@@ -24,7 +24,7 @@ package jakarta.servlet.http;
  *
  * @author lprimak
  */
-@Deprecated(forRemoval = true)
-public class HttpSessionContext {
+@Deprecated
+public interface HttpSessionContext {
 
 }
