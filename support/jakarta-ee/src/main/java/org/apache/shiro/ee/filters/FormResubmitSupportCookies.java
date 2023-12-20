@@ -68,12 +68,7 @@ public class FormResubmitSupportCookies {
         if (nativeSessionManager != null) {
             return (int) Duration.ofMillis(nativeSessionManager.getGlobalSessionTimeout()).toSeconds();
         } else {
-            try {
-                return (int) Duration.ofMinutes(request.getServletContext().getSessionTimeout()).toSeconds();
-            } catch (Throwable e) {
-                // workaround for https://github.com/eclipse/jetty.project/issues/8556
-                return (int) Duration.ofHours(1).toSeconds();
-            }
+            return (int) Duration.ofMinutes(request.getServletContext().getSessionTimeout()).toSeconds();
         }
     }
 
