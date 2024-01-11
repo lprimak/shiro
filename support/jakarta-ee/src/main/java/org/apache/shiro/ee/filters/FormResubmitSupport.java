@@ -83,7 +83,7 @@ import org.omnifaces.util.Servlets;
  */
 @Slf4j
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
-@SuppressWarnings("HideUtilityClassConstructor")
+@SuppressWarnings({"checkstyle:HideUtilityClassConstructor", "checkstyle:MethodCount"})
 public class FormResubmitSupport {
     static final String SHIRO_FORM_DATA_KEY = "org.apache.shiro.form-data-key";
     static final String SESSION_EXPIRED_PARAMETER = "org.apache.shiro.sessionExpired";
