@@ -29,6 +29,7 @@ import static org.apache.shiro.ee.filters.FormResubmitSupportCookies.cookieStrea
 import static org.apache.shiro.ee.filters.FormResubmitSupportCookies.deleteCookie;
 import static org.apache.shiro.ee.filters.FormResubmitSupportCookies.getCookieAge;
 import static org.apache.shiro.ee.filters.FormResubmitSupportCookies.getSessionCookieName;
+import java.net.URISyntaxException;
 import java.util.Collections;
 import org.apache.shiro.ee.filters.Forms.FallbackPredicate;
 import org.apache.shiro.ee.filters.ShiroFilter.WrappedSecurityManager;
@@ -97,6 +98,8 @@ public class FormResubmitSupport {
             = Pattern.compile(String.format("[\\&]?%s.\\w+=[\\w\\s:%%\\d]*", PARTIAL_VIEW));
     private static final Pattern INITIAL_AMPERSAND = Pattern.compile("^\\&");
     private static final String FORM_DATA_CACHE = "org.apache.shiro.form-data-cache";
+    private static final String FORM_RESUBMIT_HOST = "org.apache.shiro.form-resubmit-host";
+    private static final String FORM_RESUBMIT_PORT = "org.apache.shiro.form-resubmit-port";
 
     static class HttpMethod {
         static final String GET = "GET";
@@ -370,12 +373,13 @@ public class FormResubmitSupport {
             return resubmitResponseCleanup(originalRequest);
         }
         var savedRequestURI = URI.create(savedRequest);
-        HttpClient client = buildHttpClient(savedRequestURI, servletContext, originalRequest);
+        var overriddenRequestURI = overrideSavedRequestURI(savedRequestURI);
+        HttpClient client = buildHttpClient(overriddenRequestURI, servletContext, originalRequest);
         PartialAjaxResult decodedFormData = parseFormData(savedFormData, savedRequestURI, client, servletContext);
-        HttpRequest postRequest = constructPostRequest(savedRequestURI, decodedFormData.result);
+        HttpRequest postRequest = constructPostRequest(overriddenRequestURI, decodedFormData.result);
         HttpResponse<String> response = sendResubmitRequest(client, postRequest);
         if (rememberedAjaxResubmit && !decodedFormData.isStatelessRequest) {
-            HttpRequest redirectRequest = constructPostRequest(savedRequestURI, savedFormData);
+            HttpRequest redirectRequest = constructPostRequest(overriddenRequestURI, savedFormData);
             var redirectResponse = client.send(redirectRequest, HttpResponse.BodyHandlers.ofString());
             log.debug("Redirect request: {}, response: {}", redirectRequest, redirectResponse);
             return processResubmitResponse(redirectResponse, originalRequest, originalResponse,
@@ -386,6 +390,19 @@ public class FormResubmitSupport {
                     response.headers(), savedRequest, servletContext,
                     (rememberedAjaxResubmit && decodedFormData.isStatelessRequest) ? false
                             : decodedFormData.isPartialAjaxRequest, rememberedAjaxResubmit);
+        }
+    }
+
+    @SneakyThrows(URISyntaxException.class)
+    private static URI overrideSavedRequestURI(URI savedRequestURI) {
+        var resubmitHost = Optional.ofNullable(System.getProperty(FORM_RESUBMIT_HOST));
+        var resubmitPort = Optional.ofNullable(System.getProperty(FORM_RESUBMIT_PORT)).map(Integer::valueOf);
+        if (resubmitHost.isPresent() || resubmitPort.isPresent()) {
+            return new URI(savedRequestURI.getScheme(), savedRequestURI.getRawUserInfo(),
+                    resubmitHost.orElse(savedRequestURI.getHost()), resubmitPort.orElse(savedRequestURI.getPort()),
+                    savedRequestURI.getRawPath(), savedRequestURI.getRawQuery(), savedRequestURI.getRawFragment());
+        } else {
+            return savedRequestURI;
         }
     }
 
