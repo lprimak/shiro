@@ -58,6 +58,7 @@ import org.apache.shiro.web.session.mgt.WebSessionKey;
 import org.apache.shiro.web.subject.WebSubjectContext;
 import org.apache.shiro.web.util.WebUtils;
 import org.omnifaces.util.Servlets;
+import org.omnifaces.util.Utils;
 
 /**
  * Stops JEE server from interpreting Shiro principal as direct EJB principal,
@@ -83,7 +84,7 @@ public class ShiroFilter extends org.apache.shiro.web.servlet.ShiroFilter {
         @Getter(value = AccessLevel.PRIVATE, lazy = true)
         private final boolean httpsNeeded = createHttpButNeedHttps();
         @Getter(value = AccessLevel.PRIVATE, lazy = true)
-        private final StringBuffer secureRequestURL = rewriteHttpToHttps();
+        private final StringBuffer secureRequestURL = httpsRequestURL();
 
         WrappedRequest(HttpServletRequest wrapped, ServletContext servletContext, boolean httpSessions) {
             super(wrapped, servletContext, httpSessions);
@@ -127,7 +128,7 @@ public class ShiroFilter extends org.apache.shiro.web.servlet.ShiroFilter {
                             .getHeader(X_FORWARDED_PROTO));
         }
 
-        private StringBuffer rewriteHttpToHttps() {
+        private StringBuffer httpsRequestURL() {
             return new StringBuffer(HTTP_TO_HTTPS.matcher(super.getRequestURL())
                     .replaceFirst(HTTPS_SCHEME + "$1"));
         }
@@ -146,6 +147,14 @@ public class ShiroFilter extends org.apache.shiro.web.servlet.ShiroFilter {
             if (request.getAttribute(DONT_ADD_ANY_MORE_COOKIES) != Boolean.TRUE) {
                 super.addCookie(cookie);
             }
+        }
+
+        @Override
+        public void sendRedirect(String location) throws IOException {
+            if (!Utils.startsWithOneOf(location, new String[]{"http://", "https://"})) {
+                location = Servlets.getRequestDomainURL(WebUtils.toHttp(request)) + location;
+            }
+            super.sendRedirect(location);
         }
     }
 
