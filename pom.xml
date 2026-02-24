@@ -803,7 +803,7 @@
                         <description>${project.description}</description>
                         <downloadPage>${project.distributionManagement.downloadUrl}</downloadPage>
                         <homepage>${project.url}</homepage>
-                        <mailingList>${project.url}/mail-lists.html</mailingList>
+                        <mailingList>${project.url}/mailing-lists.html</mailingList>
                         <name>${project.name}</name>
                         <shortdesc>A simple to use Java Security Framework.</shortdesc>
                         <vendor>${project.organization.name}</vendor>
