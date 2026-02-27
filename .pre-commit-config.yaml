@@ -27,6 +27,16 @@ repos:
         description: A simple hook which prints all arguments passed to it, useful for debugging
       - id: check-hooks-apply
         description: Useful when testing new hooks to see if they apply to the repository
+  - repo: local
+    hooks:
+      - id: check-zip-file-is-not-committed
+        name: Check no Zip files are committed
+        description: Zip files are not allowed in the repository
+        language: fail
+        entry: |
+          Zip files are not allowed in the repository as they are hard to
+          track and have security implications. Please remove the zip file from the repository
+        files: (?i)\.zip$
   - repo: https://github.com/codespell-project/codespell
     rev: v2.4.1
     hooks:
@@ -106,9 +116,10 @@ repos:
         name: run gitleaks
         description: check for secrets with gitleaks
   - repo: https://github.com/rhysd/actionlint
-    rev: v1.7.10
+    rev: v1.7.11
     hooks:
       - id: actionlint
+        name: run actionlint
         description: actionlint is a static checker for GitHub Actions workflow files
   - repo: https://github.com/tcort/markdown-link-check
     rev: v3.14.2
