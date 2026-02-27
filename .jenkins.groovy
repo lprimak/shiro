@@ -98,7 +98,9 @@ pipeline {
                             script {
                                 def latestRelease = sh(script: """
                                     curl -sf https://repo.maven.apache.org/maven2/org/apache/shiro/shiro-root/maven-metadata.xml \
-                                    | xmllint --xpath '//metadata/versioning/latest/text()' - 2>/dev/null || echo '$builtinVersion'
+                                    | xmllint --xpath '//metadata/versioning/versions/version/text()' - 2>/dev/null \
+                                    | egrep -vi "alpha|beta|RC"|tail -n1 \
+                                    || echo '$builtinVersion'
                                     """, returnStdout: true
                                 ).trim()
 
