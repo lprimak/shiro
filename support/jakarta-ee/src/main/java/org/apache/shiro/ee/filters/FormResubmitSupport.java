@@ -52,6 +52,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.UUID;
 import static java.util.function.Predicate.not;
+import static org.apache.shiro.web.mgt.CookieRememberMeManager.DEFAULT_REMEMBER_ME_COOKIE_NAME;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import jakarta.servlet.ServletContext;
@@ -519,7 +520,8 @@ public class FormResubmitSupport {
         cookieManager.getCookieStore().add(savedRequest, sessionCookie);
         log.debug("Setting Cookie {}", sessionCookieName);
         for (Cookie origCookie : originalRequest.getCookies()) {
-            if (!origCookie.getName().startsWith(sessionCookieName)) {
+            if (!origCookie.getName().startsWith(sessionCookieName)
+                    && !origCookie.getName().equals(DEFAULT_REMEMBER_ME_COOKIE_NAME)) {
                 try {
                     log.debug("Setting Cookie {}", origCookie.getName());
                     HttpCookie cookie = new HttpCookie(origCookie.getName(), origCookie.getValue());
