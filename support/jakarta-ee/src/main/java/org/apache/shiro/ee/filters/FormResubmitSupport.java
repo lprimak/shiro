@@ -520,7 +520,7 @@ public class FormResubmitSupport {
         cookieManager.getCookieStore().add(savedRequest, sessionCookie);
         log.debug("Setting Cookie {}", sessionCookieName);
         for (Cookie origCookie : originalRequest.getCookies()) {
-            if (!origCookie.getName().equals(sessionCookieName)) {
+            if (!origCookie.getName().startsWith(sessionCookieName)) {
                 try {
                     log.debug("Setting Cookie {}", origCookie.getName());
                     HttpCookie cookie = new HttpCookie(origCookie.getName(), origCookie.getValue());
