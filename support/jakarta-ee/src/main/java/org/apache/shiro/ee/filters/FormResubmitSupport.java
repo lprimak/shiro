@@ -405,8 +405,7 @@ public class FormResubmitSupport {
             deleteCookie(originalResponse, servletContext, SHIRO_FORM_DATA_KEY);
             return processResubmitResponse(response, originalRequest, originalResponse,
                     response.headers(), savedRequest, servletContext,
-                    (rememberedAjaxResubmit && decodedFormData.isStatelessRequest) ? false
-                            : decodedFormData.isPartialAjaxRequest, rememberedAjaxResubmit);
+                    decodedFormData.isPartialAjaxRequest, rememberedAjaxResubmit);
         }
     }
 
