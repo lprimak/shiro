@@ -486,7 +486,7 @@ public class FormResubmitSupport {
                                 .startsWith(getSessionCookieName(servletContext, getSecurityManager()))))
                         .forEach(entry -> addCookie(originalResponse, servletContext,
                                 entry.getKey(), entry.getValue(), -1));
-                if (isPartialAjaxRequest) {
+                if (response.statusCode() == FOUND && isPartialAjaxRequest) {
                     originalResponse.setHeader(CONTENT_TYPE, TEXT_XML);
                     originalResponse.setCharacterEncoding(StandardCharsets.UTF_8.name());
                     originalResponse.getWriter().append(String.format(
