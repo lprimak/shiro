@@ -52,10 +52,13 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import static java.util.function.Predicate.not;
 import static org.apache.shiro.ee.listeners.IniEnvironment.hasFacesContext;
+import static org.apache.shiro.web.filter.authc.NoAccessFilter.FORM_RESUBMIT_CHECK_SERVLET_PATH;
 import static org.apache.shiro.web.mgt.CookieRememberMeManager.DEFAULT_REMEMBER_ME_COOKIE_NAME;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import jakarta.servlet.ServletContext;
@@ -94,6 +97,7 @@ public class FormResubmitSupport {
     static final String SHIRO_FORM_DATA_KEY = "org.apache.shiro.form-data-key";
     static final String SESSION_EXPIRED_PARAMETER = "org.apache.shiro.sessionExpired";
     static final String FORM_IS_RESUBMITTED = "org.apache.shiro.form-is-resubmitted";
+    static final String FORM_RESUBMIT_WHITELIST = "org.apache.shiro.form-resubmit-whitelist";
     // encoded view state
     private static final String FACES_VIEW_STATE = "jakarta.faces.ViewState";
     private static final String FACES_VIEW_STATE_EQUALS = FACES_VIEW_STATE + "=";
@@ -113,6 +117,9 @@ public class FormResubmitSupport {
     private static final Optional<String> RESUBMIT_HOST = Optional.ofNullable(System.getProperty(FORM_RESUBMIT_HOST));
     private static final Optional<Integer> RESUBMIT_PORT = Optional.ofNullable(System.getProperty(FORM_RESUBMIT_PORT))
             .map(Integer::valueOf);
+    private static final String FORM_RESUBMIT_WHITE_LIST_MAX_SIZE = "org.apache.shiro.form-resubmit-whitelist-max-size";
+    private static final Optional<Integer> RESUBMIT_WHITE_LIST_MAX_SIZE =
+            Optional.ofNullable(System.getProperty(FORM_RESUBMIT_WHITE_LIST_MAX_SIZE)).map(Integer::valueOf);
 
     static class HttpMethod {
         static final String GET = "GET";
@@ -418,6 +425,9 @@ public class FormResubmitSupport {
         }
         URI overriddenRequestURI = overrideSavedRequestURI(URI.create(savedRequest));
         HttpClient client = buildHttpClient(overriddenRequestURI, servletContext, originalRequest);
+        if (!checkWhitelist(servletContext, overriddenRequestURI, client)) {
+            return savedRequest;
+        }
         HttpResponse<String> response;
         PartialAjaxResult decodedFormData;
         try {
@@ -572,6 +582,58 @@ public class FormResubmitSupport {
         return HttpClient.newBuilder().cookieHandler(cookieManager).build();
     }
 
+    private static boolean checkWhitelist(ServletContext servletContext, URI savedRequestURI, HttpClient client) {
+        Set<String> whitelist = Servlets.getApplicationAttribute(servletContext, FORM_RESUBMIT_WHITELIST);
+        if (whitelist == null) {
+            whitelist = Collections.newSetFromMap(new ConcurrentHashMap<>());
+            servletContext.setAttribute(FORM_RESUBMIT_WHITELIST, whitelist);
+        }
+
+        if (whitelist.contains(savedRequestURI.getAuthority())) {
+            return true;
+        } else if (checkWhitelistClient(savedRequestURI, servletContext.getContextPath(), client)) {
+            @SuppressWarnings("checkstyle:MagicNumber")
+            int maxSize = RESUBMIT_WHITE_LIST_MAX_SIZE.orElse(1000);
+            if (whitelist.size() >= maxSize) {
+                log.warn("Form resubmit whitelist exceeded max size of {}. Clearing whitelist.", maxSize);
+                whitelist.clear();
+            }
+            whitelist.add(savedRequestURI.getAuthority());
+            return true;
+        }
+
+        return false;
+    }
+
+    private static boolean checkWhitelistClient(URI savedRequestURI, String contextPath, HttpClient client) {
+        try {
+            var rememberMeManager = getRememberMeManager();
+            if (rememberMeManager == null || rememberMeManager.getCipherService() == null
+                    || rememberMeManager.getSerializer() == null) {
+                log.warn("Form resubmit cipher service not available, unable to decrypt - resubmit will not be available.");
+                return false;
+            }
+
+            var request = HttpRequest.newBuilder()
+                    .uri(URI.create("%s://%s%s%s".formatted(savedRequestURI.getScheme(), savedRequestURI.getAuthority(),
+                            contextPath, FORM_RESUBMIT_CHECK_SERVLET_PATH))).GET().build();
+            var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == OK && Objects.equals(decrypt(response.body(), rememberMeManager),
+                    SecurityUtils.getSubject().getSession().getId().toString())) {
+                log.debug("Form resubmit whitelist check succeeded for {}", savedRequestURI);
+                return true;
+            } else {
+                log.debug("Form resubmit whitelist check failed for {} with status code {}",
+                        savedRequestURI, response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+            log.debug("Form resubmit whitelist check failed for {} with exception: {}",
+                    savedRequestURI, e);
+        }
+        return false;
+    }
+
     public static DefaultWebSessionManager getNativeSessionManager(SecurityManager securityManager) {
         DefaultWebSessionManager rv = null;
         SecurityManager unwrapped = unwrapSecurityManager(securityManager, SecurityManager.class, type -> false);
@@ -584,7 +646,7 @@ public class FormResubmitSupport {
         return rv;
     }
 
-    private static AbstractRememberMeManager getRememberMeManager() {
+    static AbstractRememberMeManager getRememberMeManager() {
         if (isSecurityManagerTypeOf(getSecurityManager(), DefaultSecurityManager.class)) {
             var dsm = getSecurityManager(DefaultSecurityManager.class);
             return (AbstractRememberMeManager) dsm.getRememberMeManager();
