@@ -53,13 +53,11 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import static java.util.function.Predicate.not;
 import static org.apache.shiro.ee.listeners.IniEnvironment.hasFacesContext;
 import static org.apache.shiro.web.filter.authc.NoAccessFilter.FORM_RESUBMIT_CHECK_SERVLET_PATH;
 import static org.apache.shiro.web.mgt.CookieRememberMeManager.DEFAULT_REMEMBER_ME_COOKIE_NAME;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import jakarta.servlet.ServletContext;
@@ -76,6 +74,7 @@ import lombok.SneakyThrows;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.SecurityUtils;
+import org.apache.shiro.cache.Cache;
 import org.apache.shiro.lang.codec.Base64;
 import org.apache.shiro.mgt.AbstractRememberMeManager;
 import org.apache.shiro.mgt.DefaultSecurityManager;
@@ -99,6 +98,7 @@ public class FormResubmitSupport {
     static final String SESSION_EXPIRED_PARAMETER = "org.apache.shiro.sessionExpired";
     static final String FORM_IS_RESUBMITTED = "org.apache.shiro.form-is-resubmitted";
     static final String FORM_RESUBMIT_WHITELIST = "org.apache.shiro.form-resubmit-whitelist";
+    static final String FORM_RESUBMIT_BLACKLIST = "org.apache.shiro.form-resubmit-blacklist";
     // encoded view state
     private static final String FACES_VIEW_STATE = "jakarta.faces.ViewState";
     private static final String FACES_VIEW_STATE_EQUALS = FACES_VIEW_STATE + "=";
@@ -121,6 +121,14 @@ public class FormResubmitSupport {
     private static final String FORM_RESUBMIT_WHITE_LIST_MAX_SIZE = "org.apache.shiro.form-resubmit-whitelist-max-size";
     private static final Optional<Integer> RESUBMIT_WHITE_LIST_MAX_SIZE =
             Optional.ofNullable(System.getProperty(FORM_RESUBMIT_WHITE_LIST_MAX_SIZE)).map(Integer::valueOf);
+    private static final String FORM_RESUBMIT_BLACK_LIST_MAX_SIZE = "org.apache.shiro.form-resubmit-blacklist-max-size";
+    private static final Optional<Integer> RESUBMIT_BLACK_LIST_MAX_SIZE =
+            Optional.ofNullable(System.getProperty(FORM_RESUBMIT_BLACK_LIST_MAX_SIZE)).map(Integer::valueOf);
+    private static final String FORM_RESUBMIT_BLACK_LIST_TTL_SECONDS =
+            "org.apache.shiro.form-resubmit-blacklist-ttl-seconds";
+    private static final Optional<Long> RESUBMIT_BLACK_LIST_TTL_SECONDS =
+            Optional.ofNullable(System.getProperty(FORM_RESUBMIT_BLACK_LIST_TTL_SECONDS)).map(Long::valueOf);
+    private static final long DEFAULT_RESUBMIT_BLACK_LIST_TTL_SECONDS = 60L;
 
     static class HttpMethod {
         static final String GET = "GET";
@@ -585,26 +593,86 @@ public class FormResubmitSupport {
     }
 
     private static boolean checkWhitelist(ServletContext servletContext, URI savedRequestURI, HttpClient client) {
-        Set<String> whitelist = Servlets.getApplicationAttribute(servletContext, FORM_RESUBMIT_WHITELIST);
-        if (whitelist == null) {
-            whitelist = Collections.newSetFromMap(new ConcurrentHashMap<>());
-            servletContext.setAttribute(FORM_RESUBMIT_WHITELIST, whitelist);
+        if (!isSecurityManagerTypeOf(getSecurityManager(), DefaultSecurityManager.class)) {
+            log.warn("Shiro SecurityManager is not configured for form resubmit whitelist caching");
+            return false;
+        }
+        DefaultSecurityManager dsm = getSecurityManager(DefaultSecurityManager.class);
+        if (dsm.getCacheManager() == null) {
+            log.warn("Shiro Cache manager is not configured, cannot cache form resubmit whitelist state");
+            return false;
         }
 
-        if (whitelist.contains(savedRequestURI.getAuthority())) {
+        Cache<String, Boolean> whitelist = getWhitelistCache(dsm);
+        Cache<String, Long> blacklist = getBlacklistCache(dsm);
+        String authority = savedRequestURI.getAuthority();
+
+        if (Boolean.TRUE.equals(whitelist.get(authority))) {
             return true;
+        } else if (isBlacklisted(blacklist, authority)) {
+            log.debug("Form resubmit blacklist cache hit for {}", savedRequestURI);
+            return false;
         } else if (checkWhitelistClient(savedRequestURI, servletContext.getContextPath(), client)) {
+            putWhitelistEntry(whitelist, authority);
+            blacklist.remove(authority);
+            return true;
+        }
+
+        putBlacklistEntry(blacklist, authority);
+        return false;
+    }
+
+    static Cache<String, Boolean> getWhitelistCache(DefaultSecurityManager securityManager) {
+        return securityManager.getCacheManager().getCache(FORM_RESUBMIT_WHITELIST);
+    }
+
+    static Cache<String, Long> getBlacklistCache(DefaultSecurityManager securityManager) {
+        return securityManager.getCacheManager().getCache(FORM_RESUBMIT_BLACKLIST);
+    }
+
+    private static void putWhitelistEntry(Cache<String, Boolean> whitelist, String authority) {
+        if (whitelist.get(authority) == null) {
             @SuppressWarnings("checkstyle:MagicNumber")
             int maxSize = RESUBMIT_WHITE_LIST_MAX_SIZE.orElse(1000);
             if (whitelist.size() >= maxSize) {
                 log.warn("Form resubmit whitelist exceeded max size of {}. Clearing whitelist.", maxSize);
                 whitelist.clear();
             }
-            whitelist.add(savedRequestURI.getAuthority());
-            return true;
         }
+        whitelist.put(authority, Boolean.TRUE);
+    }
 
-        return false;
+    private static void putBlacklistEntry(Cache<String, Long> blacklist, String authority) {
+        if (blacklist.get(authority) == null) {
+            @SuppressWarnings("checkstyle:MagicNumber")
+            int maxSize = RESUBMIT_BLACK_LIST_MAX_SIZE.orElse(1000);
+            if (blacklist.size() >= maxSize) {
+                log.warn("Form resubmit blacklist exceeded max size of {}. Clearing blacklist.", maxSize);
+                blacklist.clear();
+            }
+        }
+        blacklist.put(authority, System.currentTimeMillis());
+    }
+
+    static boolean isBlacklisted(Cache<String, Long> blacklist, String authority) {
+        long currentTimeMillis = System.currentTimeMillis();
+        return isBlacklisted(blacklist, authority,
+                Duration.ofSeconds(RESUBMIT_BLACK_LIST_TTL_SECONDS.orElse(DEFAULT_RESUBMIT_BLACK_LIST_TTL_SECONDS)),
+                currentTimeMillis);
+    }
+
+    static boolean isBlacklisted(Cache<String, Long> blacklist, String authority,
+            Duration ttl, long currentTimeMillis) {
+        Long blacklistedAt = blacklist.get(authority);
+        if (blacklistedAt == null) {
+            return false;
+        }
+        boolean active = blacklistedAt >= currentTimeMillis
+                || currentTimeMillis - blacklistedAt < ttl.toMillis();
+        if (!active) {
+            blacklist.remove(authority);
+        }
+        return active;
     }
 
     private static boolean checkWhitelistClient(URI savedRequestURI, String contextPath, HttpClient client) {
