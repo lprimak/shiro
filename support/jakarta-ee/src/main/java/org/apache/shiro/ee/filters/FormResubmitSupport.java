@@ -35,6 +35,7 @@ import static org.apache.shiro.ee.filters.FormResubmitSupportCookies.deleteCooki
 import static org.apache.shiro.ee.filters.FormResubmitSupportCookies.getCookieAge;
 import static org.apache.shiro.ee.filters.FormResubmitSupportCookies.getSessionCookieName;
 import java.net.URISyntaxException;
+import java.time.Duration;
 import java.util.Collections;
 import org.apache.shiro.crypto.CryptoException;
 import org.apache.shiro.ee.filters.Forms.FallbackPredicate;
@@ -470,6 +471,7 @@ public class FormResubmitSupport {
 
     private static HttpRequest constructPostRequest(URI request, String body) {
         return HttpRequest.newBuilder().uri(request)
+                .timeout(Duration.ofSeconds(5))
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .headers(CONTENT_TYPE, APPLICATION_FORM_URLENCODED,
                         FORM_IS_RESUBMITTED, Boolean.TRUE.toString())
@@ -579,7 +581,7 @@ public class FormResubmitSupport {
                 }
             }
         }
-        return HttpClient.newBuilder().cookieHandler(cookieManager).build();
+        return HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).cookieHandler(cookieManager).build();
     }
 
     private static boolean checkWhitelist(ServletContext servletContext, URI savedRequestURI, HttpClient client) {
@@ -616,7 +618,8 @@ public class FormResubmitSupport {
 
             var request = HttpRequest.newBuilder()
                     .uri(URI.create("%s://%s%s%s".formatted(savedRequestURI.getScheme(), savedRequestURI.getAuthority(),
-                            contextPath, FORM_RESUBMIT_CHECK_SERVLET_PATH))).GET().build();
+                            contextPath, FORM_RESUBMIT_CHECK_SERVLET_PATH)))
+                    .timeout(Duration.ofSeconds(3)).GET().build();
             var response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == OK && Objects.equals(decrypt(response.body(), rememberMeManager),
