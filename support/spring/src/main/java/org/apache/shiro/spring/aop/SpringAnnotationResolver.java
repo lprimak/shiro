@@ -27,13 +27,15 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 
 /**
- * {@code AnnotationResolver} implementation that uses Spring's more robust
- * {@link AnnotationUtils AnnotationUtils} to find method annotations instead of the JDKs simpler
- * (and rather lacking) {@link Method}.{@link Method#getAnnotation(Class) getAnnotation(class)}
- * implementation.
+ * {@code AnnotationResolver} implementation that uses Spring's
+ * {@link AnnotationUtils AnnotationUtils} to find method annotations.
  *
  * @since 1.1
+ * @deprecated the default {@link org.apache.shiro.aop.DefaultAnnotationResolver} now resolves annotations across
+ * superclasses, interfaces and meta-annotations for every integration; this resolver only adds Spring's
+ * {@code @AliasFor} attribute merging and is no longer used by default.
  */
+@Deprecated
 public class SpringAnnotationResolver implements AnnotationResolver {
 
     @Override
@@ -50,13 +52,13 @@ public class SpringAnnotationResolver implements AnnotationResolver {
         //the interface itself), it won't be on the above method object.  Instead, we need to
         //acquire the method representation from the targetClass and check directly on the
         //implementation itself:
-        Class<?> targetClass = mi.getThis().getClass();
+        Class<?> targetClass = mi.getThis() != null ? mi.getThis().getClass() : m.getDeclaringClass();
         m = ClassUtils.getMostSpecificMethod(m, targetClass);
         a = AnnotationUtils.findAnnotation(m, clazz);
         if (a != null) {
             return a;
         }
         // See if the class has the same annotation
-        return AnnotationUtils.findAnnotation(mi.getThis().getClass(), clazz);
+        return AnnotationUtils.findAnnotation(targetClass, clazz);
     }
 }

@@ -31,6 +31,55 @@ throws it)
 - Basically, it’s Shiro on steroids when used with Jakarta EE stack as
 opposed to changing the way Shiro works by integrating CDI
 
+== Authorization annotations on interfaces and base classes
+
+Shiro's authorization annotations (`@RequiresRoles`, `@RequiresPermissions`, `@RequiresAuthentication`,
+`@RequiresUser`, `@RequiresGuest`) and the JSR-250 annotations (`@RolesAllowed`, `@PermitAll`, `@DenyAll`)
+are honored wherever they appear in a bean's type hierarchy: on the bean class, on a superclass, on an
+implemented interface, on an overridden or interface method, or as a meta-annotation of a composed annotation.
+The resolution rules are the same for the Spring, Guice, CDI and JAX-RS integrations: the closest declaration
+wins. The invoked method is inspected first, then the bean class, its superclasses and its interfaces, most
+specific first; at each level the method declaration is inspected before the type. A method-level annotation
+therefore overrides a type-level annotation of the same type, and a subclass can restrict inherited methods
+with a type-level annotation.
+
+CDI discovers beans that carry an annotation themselves through `@WithAnnotations`, so classes that are not
+annotated are never loaded for that purpose. A bean that is secured *only* through an interface or a
+superclass cannot be found that way. For those, `shiro-cdi` reads the Jandex index of the deployment
+(`META-INF/jandex.idx`) and registers a replacement bean carrying the security interceptor. Build the index
+with the Jandex Maven plugin, bound to the default `process-classes` phase so it is never stale:
+
+[source,xml]
+----
+<plugin>
+    <groupId>io.smallrye</groupId>
+    <artifactId>jandex-maven-plugin</artifactId>
+    <version>3.6.0</version>
+    <executions>
+        <execution>
+            <goals>
+                <goal>jandex</goal>
+            </goals>
+        </execution>
+    </executions>
+</plugin>
+----
+
+Every index on the class path is merged, so libraries may ship their own. Supertypes and annotation types
+from libraries that ship no index are indexed on the fly from their class files, as long as the implementing
+class itself is indexed.
+
+Limitations of the index-based discovery (all logged at deployment):
+
+* a class that is in no index is not discovered;
+* a class without a bean-defining annotation (scope or stereotype) is not replaced, because the container
+  would not have created a bean for it in `annotated` discovery mode;
+* `final` classes cannot be proxied and EJB session beans cannot be replaced by a synthetic bean. For EJBs the
+  container enforces JSR-250 itself; for Shiro annotations, annotate the class directly.
+
+In all of these cases, annotating the implementing class directly (even with a redundant annotation)
+is enough: directly annotated classes never depend on the index.
+
 == Form resubmission
 
 Saved forms are replayed within the current web application using

@@ -18,6 +18,11 @@
  */
 package org.apache.shiro.spring.security.interceptor;
 
+import org.apache.shiro.aop.fixtures.AnnotatedSubclass;
+import org.apache.shiro.aop.fixtures.ComposedAnnotated;
+import org.apache.shiro.aop.fixtures.MethodSecuredSubclass;
+import org.apache.shiro.aop.fixtures.SecuredSubclass;
+import org.apache.shiro.aop.fixtures.Unsecured;
 import org.apache.shiro.authz.annotation.RequiresAuthentication;
 import org.junit.jupiter.api.Test;
 
@@ -92,4 +97,19 @@ class AuthorizationAttributeSourceAdvisorTest {
 
     }
 
+    @Test
+    void matchesAcrossClassHierarchy() throws NoSuchMethodException {
+        AuthorizationAttributeSourceAdvisor advisor = new AuthorizationAttributeSourceAdvisor();
+        assertThat(advisor.matches(SecuredSubclass.class.getMethod("subclassOperation"), SecuredSubclass.class))
+                .as("type-level annotation on the superclass").isTrue();
+        assertThat(advisor.matches(MethodSecuredSubclass.class.getMethod("authenticatedOperation"), MethodSecuredSubclass.class))
+                .as("method-level annotation on the overridden superclass method").isTrue();
+        assertThat(advisor.matches(AnnotatedSubclass.class.getMethod("inheritedOperation"), AnnotatedSubclass.class))
+                .as("type-level annotation on the subclass protects inherited methods").isTrue();
+        assertThat(advisor.matches(ComposedAnnotated.class.getMethod("composed"), ComposedAnnotated.class))
+                .as("composed annotation").isTrue();
+        assertThat(advisor.matches(ComposedAnnotated.class.getMethod("unsecured"), ComposedAnnotated.class)).isFalse();
+        assertThat(advisor.matches(Unsecured.class.getMethod("open"), Unsecured.class)).isFalse();
+        assertThat(advisor.matches(Unsecured.class.getMethod("open"), null)).as("null target class").isFalse();
+    }
 }

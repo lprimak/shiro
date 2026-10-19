@@ -133,6 +133,7 @@
         <hibernate.version>7.4.13.Final</hibernate.version>
         <taglibs.standard.version>1.2.5</taglibs.standard.version>
         <lombok.version>1.18.48</lombok.version>
+        <jandex.version>3.6.0</jandex.version>
         <!-- modules using Lombok set delombok.phase=prepare-package and javadoc.sourcepath=${javadoc.delombok.sourcepath} -->
         <delombok.phase>none</delombok.phase>
         <javadoc.sourcepath>${project.build.sourceDirectory}</javadoc.sourcepath>
@@ -959,6 +960,21 @@
                 <groupId>org.apache.shiro</groupId>
                 <artifactId>shiro-aspectj</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.shiro</groupId>
+                <artifactId>shiro-jandex</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.shiro</groupId>
+                <artifactId>shiro-cdi</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.smallrye</groupId>
+                <artifactId>jandex</artifactId>
+                <version>${jandex.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.shiro</groupId>

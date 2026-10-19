@@ -34,6 +34,7 @@
         <module.name>cdi</module.name>
         <delombok.phase>prepare-package</delombok.phase>
         <javadoc.sourcepath>${javadoc.delombok.sourcepath}</javadoc.sourcepath>
+        <weld.version>6.0.4.Final</weld.version>
     </properties>
 
     <dependencies>
@@ -60,8 +61,25 @@
             <groupId>org.apache.shiro</groupId>
             <artifactId>shiro-core</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.apache.shiro</groupId>
+            <artifactId>shiro-jandex</artifactId>
+        </dependency>
 
         <!-- Test Dependencies -->
+        <dependency>
+            <groupId>org.apache.shiro</groupId>
+            <artifactId>shiro-core</artifactId>
+            <classifier>tests</classifier>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jboss.weld.se</groupId>
+            <artifactId>weld-se-shaded</artifactId>
+            <version>${weld.version}</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
@@ -96,6 +114,30 @@
                         </annotationProcessorPath>
                     </annotationProcessorPaths>
                 </configuration>
+            </plugin>
+            <plugin>
+                <!-- index the test classes so the extension can discover indirectly secured test beans -->
+                <groupId>io.smallrye</groupId>
+                <artifactId>jandex-maven-plugin</artifactId>
+                <version>${jandex.version}</version>
+                <executions>
+                    <execution>
+                        <id>index-test-classes</id>
+                        <phase>process-test-classes</phase>
+                        <goals>
+                            <goal>jandex</goal>
+                        </goals>
+                        <configuration>
+                            <processDefaultFileSet>false</processDefaultFileSet>
+                            <indexDir>${project.build.testOutputDirectory}/META-INF</indexDir>
+                            <fileSets>
+                                <fileSet>
+                                    <directory>${project.build.testOutputDirectory}</directory>
+                                </fileSet>
+                            </fileSets>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.felix</groupId>

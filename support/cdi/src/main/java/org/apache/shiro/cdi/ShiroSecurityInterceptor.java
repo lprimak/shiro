@@ -13,19 +13,25 @@
  */
 package org.apache.shiro.cdi;
 
+
 import java.io.Serial;
 import java.io.Serializable;
-import java.util.List;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.Dependent;
 import jakarta.interceptor.AroundInvoke;
 import jakarta.interceptor.Interceptor;
 import jakarta.interceptor.InvocationContext;
 
-import org.apache.shiro.cdi.AopHelper.SecurityInterceptor;
+import lombok.SneakyThrows;
+import org.apache.shiro.aop.DefaultAnnotationResolver;
+import org.apache.shiro.authz.aop.AnnotationsAuthorizingMethodInterceptor;
+import org.apache.shiro.authz.aop.AuthorizationAnnotations;
 
 /**
- * Enforce Shiro security on EJBs and CDI Beans
+ * Enforce Shiro security on EJBs and CDI Beans.
+ * <p>
+ * Delegates to the same {@link AnnotationsAuthorizingMethodInterceptor} chain used by the other integrations,
+ * so annotations on interfaces, superclasses and composed annotations are honored identically.
  */
 @Interceptor
 @ShiroSecureAnnotation
@@ -35,16 +41,13 @@ public class ShiroSecurityInterceptor implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
+    private static final AnnotationsAuthorizingMethodInterceptor INTERCEPTOR = new AnnotationsAuthorizingMethodInterceptor(
+            new DefaultAnnotationResolver(), AuthorizationAnnotations.allTypes()) {
+    };
+
     @AroundInvoke
+    @SneakyThrows
     public Object propagateShiroSecurity(final InvocationContext ctx) throws Exception {
-        checkPermissions(ctx);
-        return ctx.proceed();
-    }
-
-
-    private void checkPermissions(final InvocationContext ctx) throws Exception {
-        List<SecurityInterceptor> siList = AopHelper.createSecurityInterceptors(ctx.getMethod(),
-                ctx.getMethod().getDeclaringClass());
-        siList.forEach(SecurityInterceptor::intercept);
+        return INTERCEPTOR.invoke(new InvocationContextAdapter(ctx));
     }
 }
