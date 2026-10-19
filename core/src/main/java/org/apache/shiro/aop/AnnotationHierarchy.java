@@ -52,7 +52,8 @@ import java.util.stream.StreamSupport;
  * A subclass can also restrict inherited methods with a type-level annotation.
  * At every step the annotation may be present directly or as a meta-annotation (composed annotation).
  * <p>
- * Results are cached per target class using {@link ClassValue}.
+ * Results are cached per class using {@link ClassValue}.
+ * A type shared by many classes, such as a common interface or base class, is inspected only once.
  * Only classes defined by this class's loader, or by a loader that has it as an ancestor, are cached.
  * A cache entry in any other class could keep this class's loader from being reclaimed.
  * Those classes are searched on every call instead.
@@ -80,7 +81,7 @@ public final class AnnotationHierarchy {
      * Per target class cache.
      */
     private record Cache(List<Class<?>> hierarchy, Map<Key, Optional<Annotation>> found,
-                         Map<Class<? extends Annotation>, Boolean> present) {
+                         Map<Class<? extends Annotation>, Boolean> own) {
         Cache(Class<?> type) {
             this(StreamSupport.stream(ClassUtils.hierarchy(type, Interfaces.INCLUDE).spliterator(), false)
                     .filter(candidate -> candidate != Object.class).toList(),
@@ -117,10 +118,10 @@ public final class AnnotationHierarchy {
      * @return {@code true} if the class or any of its methods is (directly or indirectly) annotated
      */
     public static boolean isPresent(Class<?> targetClass, Class<? extends Annotation> annotationType) {
-        Cache cache = cacheFor(targetClass);
-        return cache.present().computeIfAbsent(annotationType, type -> cache.hierarchy().stream()
-                .anyMatch(declaring -> findDeclared(declaring, type) != null || Arrays.stream(declaring.getDeclaredMethods())
-                        .anyMatch(method -> !method.isBridge() && !method.isSynthetic() && findDeclared(method, type) != null)));
+        return cacheFor(targetClass).hierarchy().stream().anyMatch(declaring -> cacheFor(declaring).own()
+                .computeIfAbsent(annotationType, type -> findDeclared(declaring, type) != null
+                        || Arrays.stream(declaring.getDeclaredMethods()).anyMatch(method -> !method.isBridge()
+                        && !method.isSynthetic() && findDeclared(method, type) != null)));
     }
 
     /**
