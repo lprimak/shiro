@@ -18,6 +18,8 @@
  */
 package org.apache.shiro.aop;
 
+import lombok.NonNull;
+import lombok.experimental.UtilityClass;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.ClassUtils.Interfaces;
 import org.apache.commons.lang3.reflect.MethodUtils;
@@ -34,40 +36,44 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Supplier;
 import java.util.stream.StreamSupport;
 
 /**
  * Framework-independent, cached discovery of annotations across a type hierarchy.
  * <p>
  * The lookup rules are the same for every Shiro integration (Spring, Guice, CDI, JAX-RS, AspectJ).
- * The closest declaration wins: the invoked method itself is inspected first, then every type of the target's
- * hierarchy (the target class, its interfaces, its superclass and so on, see {@link #hierarchy(Class)}),
- * most specific first. At each type the method overridden or implemented there is inspected before the type
- * itself, so a method-level annotation overrides a type-level annotation of the same type declared at the same
- * level or further up, and a subclass can restrict inherited methods with a type-level annotation.
+ * The closest declaration wins.
+ * The invoked method itself is inspected first.
+ * Then every type of the target's hierarchy is inspected, most specific first: the target class,
+ * its interfaces, its superclass and so on.
+ * At each type, the method it overrides or implements is inspected before the type itself.
+ * So a method-level annotation overrides a type-level annotation of the same type declared at the same level
+ * or further up.
+ * A subclass can also restrict inherited methods with a type-level annotation.
  * At every step the annotation may be present directly or as a meta-annotation (composed annotation).
  * <p>
- * Results are cached per target class using {@link ClassValue}, so cache entries are reclaimed together with
- * the class loader that defined the target class.
+ * Results are cached per target class using {@link ClassValue}.
+ * Cache entries are reclaimed together with the class loader that defined the target class.
  *
  * @since 3.0.2
  */
+@UtilityClass
+@SuppressWarnings("checkstyle:HideUtilityClassConstructor")
 public final class AnnotationHierarchy {
     private static final String JAVA_LANG_ANNOTATION = "java.lang.annotation.";
 
     private static final ClassValue<Cache> CACHE = new ClassValue<>() {
         @Override
-        protected Cache computeValue(Class<?> type) {
-            return new Cache(hierarchyOf(type));
+        protected Cache computeValue(@NonNull Class<?> type) {
+            return new Cache(StreamSupport.stream(ClassUtils.hierarchy(type, Interfaces.INCLUDE).spliterator(), false)
+                    .filter(candidate -> candidate != Object.class).toList());
         }
     };
 
     /**
-     * Cache key; a {@code null} method means a type-level lookup.
+     * Cache key.
      */
-    private record Key(Method method, Class<? extends Annotation> annotationType) {
-    }
+    private record Key(Method method, Class<? extends Annotation> annotationType) { }
 
     /**
      * Per target class cache.
@@ -77,21 +83,6 @@ public final class AnnotationHierarchy {
         Cache(List<Class<?>> hierarchy) {
             this(hierarchy, new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
         }
-    }
-
-    private AnnotationHierarchy() {
-    }
-
-    /**
-     * Returns the type hierarchy of the given class, most specific first: the class itself, its interfaces,
-     * then its superclass with that class's interfaces and so on, without duplicates and without
-     * {@link Object}.
-     *
-     * @param type the class to inspect
-     * @return an unmodifiable list, never empty
-     */
-    static List<Class<?>> hierarchy(Class<?> type) {
-        return CACHE.get(type).hierarchy();
     }
 
     /**
@@ -105,21 +96,11 @@ public final class AnnotationHierarchy {
      * @param <A>            the annotation type
      * @return the annotation, or {@code null} if not found anywhere in the hierarchy
      */
+    @SuppressWarnings("unchecked")
     public static <A extends Annotation> A findAnnotation(Method method, Class<?> targetClass, Class<A> annotationType) {
         Class<?> searchRoot = targetClass != null ? targetClass : method.getDeclaringClass();
-        return cached(searchRoot, new Key(method, annotationType), () -> searchInvocation(method, searchRoot, annotationType));
-    }
-
-    /**
-     * Finds a type-level annotation on the target class, its superclasses or its interfaces.
-     *
-     * @param targetClass    the class to search
-     * @param annotationType the annotation to look for
-     * @param <A>            the annotation type
-     * @return the annotation, or {@code null} if not found
-     */
-    static <A extends Annotation> A findTypeAnnotation(Class<?> targetClass, Class<A> annotationType) {
-        return cached(targetClass, new Key(null, annotationType), () -> searchTypes(hierarchy(targetClass), annotationType));
+        return (A) CACHE.get(searchRoot).found().computeIfAbsent(new Key(method, annotationType),
+                var -> Optional.ofNullable(searchInvocation(method, searchRoot, annotationType))).orElse(null);
     }
 
     /**
@@ -132,7 +113,8 @@ public final class AnnotationHierarchy {
      * @return {@code true} if the class or any of its methods is (directly or indirectly) annotated
      */
     public static boolean isPresent(Class<?> targetClass, Class<? extends Annotation> annotationType) {
-        return CACHE.get(targetClass).present().computeIfAbsent(annotationType, type -> hierarchy(targetClass).stream()
+        Cache cache = CACHE.get(targetClass);
+        return cache.present().computeIfAbsent(annotationType, type -> cache.hierarchy().stream()
                 .anyMatch(declaring -> findDeclared(declaring, type) != null || Arrays.stream(declaring.getDeclaredMethods())
                         .anyMatch(method -> !method.isBridge() && !method.isSynthetic() && findDeclared(method, type) != null)));
     }
@@ -149,18 +131,13 @@ public final class AnnotationHierarchy {
         return findDeclared(element, annotationType, new HashSet<>());
     }
 
-    @SuppressWarnings("unchecked")
-    private static <A extends Annotation> A cached(Class<?> root, Key key, Supplier<A> search) {
-        return (A) CACHE.get(root).found().computeIfAbsent(key, k -> Optional.ofNullable(search.get())).orElse(null);
-    }
-
     private static <A extends Annotation> A searchInvocation(Method method, Class<?> targetClass, Class<A> annotationType) {
         A annotation = findDeclared(method, annotationType);
         if (annotation != null) {
             return annotation;
         }
         Map<Class<?>, Method> overridden = overriddenMethods(method, targetClass);
-        for (Class<?> type : hierarchy(targetClass)) {
+        for (Class<?> type : CACHE.get(targetClass).hierarchy()) {
             Method declared = overridden.get(type);
             annotation = declared != null ? findDeclared(declared, annotationType) : null;
             annotation = annotation != null ? annotation : findDeclared(type, annotationType);
@@ -172,8 +149,9 @@ public final class AnnotationHierarchy {
     }
 
     /**
-     * The method as declared in each type it overrides or implements, found by the most specific
-     * declaration visible from the target class (generic overrides and bridge methods included).
+     * Maps each type to the method it declares for the invoked method's signature.
+     * The search starts from the most specific declaration visible from the target class.
+     * Generic overrides and bridge methods are included.
      */
     private static Map<Class<?>, Method> overriddenMethods(Method invoked, Class<?> targetClass) {
         Method mostSpecific = Optional.ofNullable(
@@ -183,11 +161,6 @@ public final class AnnotationHierarchy {
                 .forEach(method -> result.putIfAbsent(method.getDeclaringClass(), method));
         result.putIfAbsent(invoked.getDeclaringClass(), invoked);
         return result;
-    }
-
-    private static <A extends Annotation> A searchTypes(List<Class<?>> hierarchy, Class<A> annotationType) {
-        return hierarchy.stream().map(type -> findDeclared(type, annotationType)).filter(Objects::nonNull)
-                .findFirst().orElse(null);
     }
 
     private static <A extends Annotation> A findDeclared(AnnotatedElement element, Class<A> annotationType,
@@ -200,11 +173,5 @@ public final class AnnotationHierarchy {
                 .filter(metaType -> !metaType.getName().startsWith(JAVA_LANG_ANNOTATION) && visited.add(metaType))
                 .map(metaType -> findDeclared(metaType, annotationType, visited))
                 .filter(Objects::nonNull).findFirst().orElse(null);
-    }
-
-    private static List<Class<?>> hierarchyOf(Class<?> type) {
-        List<Class<?>> result = StreamSupport.stream(ClassUtils.hierarchy(type, Interfaces.INCLUDE).spliterator(), false)
-                .filter(candidate -> candidate != Object.class).toList();
-        return result.isEmpty() ? List.of(type) : result;
     }
 }

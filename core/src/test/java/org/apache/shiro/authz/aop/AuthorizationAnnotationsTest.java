@@ -49,9 +49,9 @@ class AuthorizationAnnotationsTest {
     @Test
     void handlersAndInterceptorsMatchTheirAnnotationType() {
         for (Class<? extends Annotation> type : AuthorizationAnnotations.allTypes()) {
-            assertThat(AuthorizationAnnotations.createHandler(type).getAnnotationClass()).isEqualTo(type);
+            assertThat(handler(type).getAnnotationClass()).isEqualTo(type);
         }
-        assertThatIllegalArgumentException().isThrownBy(() -> AuthorizationAnnotations.createHandler(Override.class));
+        assertThatIllegalArgumentException().isThrownBy(() -> handler(Override.class));
     }
 
     @Test
@@ -61,5 +61,10 @@ class AuthorizationAnnotationsTest {
                 AuthorizationAnnotations.createMethodInterceptors(resolver, AuthorizationAnnotations.allTypes());
         assertThat(interceptors).hasSize(ALL_TYPES).allSatisfy(i -> assertThat(i.getResolver()).isSameAs(resolver));
         assertThat(new AnnotationsAuthorizingMethodInterceptor() { }.getMethodInterceptors()).hasSize(5);
+    }
+
+    private static AuthorizingAnnotationHandler handler(Class<? extends Annotation> type) {
+        return (AuthorizingAnnotationHandler) AuthorizationAnnotations.createMethodInterceptors(null, List.of(type))
+                .get(0).getHandler();
     }
 }

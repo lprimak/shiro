@@ -29,6 +29,7 @@ import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -45,13 +46,10 @@ public class AnnotationAuthorizationFilter implements ContainerRequestFilter {
         Map<AuthorizingAnnotationHandler, Annotation> authChecks =
                 new HashMap<AuthorizingAnnotationHandler, Annotation>(authzSpecs.size());
         for (Annotation authSpec : authzSpecs) {
-            authChecks.put(createHandler(authSpec), authSpec);
+            authChecks.put((AuthorizingAnnotationHandler) AuthorizationAnnotations
+                    .createMethodInterceptors(null, List.of(authSpec.annotationType())).get(0).getHandler(), authSpec);
         }
         this.authzChecks = Collections.unmodifiableMap(authChecks);
-    }
-
-    private static AuthorizingAnnotationHandler createHandler(Annotation annotation) {
-        return AuthorizationAnnotations.createHandler(annotation.annotationType());
     }
 
     @Override

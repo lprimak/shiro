@@ -29,8 +29,6 @@ import org.apache.shiro.aop.fixtures.PlainBase;
 import org.apache.shiro.aop.fixtures.RelaxedSubclass;
 import org.apache.shiro.aop.fixtures.RestrictedSubclass;
 import org.apache.shiro.aop.fixtures.RoleMethodBase;
-import org.apache.shiro.aop.fixtures.SecuredBase;
-import org.apache.shiro.aop.fixtures.SecuredInterface;
 import org.apache.shiro.aop.fixtures.SecuredInterfaceImpl;
 import org.apache.shiro.aop.fixtures.SecuredSubclass;
 import org.apache.shiro.aop.fixtures.StringRepository;
@@ -50,13 +48,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class AnnotationHierarchyTest {
 
+    @RequiresRoles("interface")
+    interface Closer {
+    }
+
+    @RequiresRoles("base")
+    static class Base {
+    }
+
+    static class Sub extends Base implements Closer {
+        public void operation() {
+        }
+    }
+
     @Test
-    void hierarchyListsSuperclassesThenInterfaces() {
-        assertThat(AnnotationHierarchy.hierarchy(SecuredSubclass.class))
-                .containsExactly(SecuredSubclass.class, SecuredBase.class);
-        assertThat(AnnotationHierarchy.hierarchy(SecuredInterfaceImpl.class))
-                .containsExactly(SecuredInterfaceImpl.class, SecuredInterface.class);
-        assertThat(AnnotationHierarchy.hierarchy(Object.class)).containsExactly(Object.class);
+    void interfaceOfSubclassIsCloserThanSuperclass() throws Exception {
+        assertThat(AnnotationHierarchy.findAnnotation(Sub.class.getMethod("operation"), Sub.class, RequiresRoles.class))
+                .extracting(RequiresRoles::value).isEqualTo(new String[] {"interface"});
     }
 
     @Test
@@ -183,7 +191,5 @@ class AnnotationHierarchyTest {
         RequiresRoles first = AnnotationHierarchy.findAnnotation(method, SecuredInterfaceImpl.class, RequiresRoles.class);
         RequiresRoles second = AnnotationHierarchy.findAnnotation(method, SecuredInterfaceImpl.class, RequiresRoles.class);
         assertThat(second).isSameAs(first);
-        assertThat(AnnotationHierarchy.hierarchy(SecuredInterfaceImpl.class))
-                .isSameAs(AnnotationHierarchy.hierarchy(SecuredInterfaceImpl.class));
     }
 }

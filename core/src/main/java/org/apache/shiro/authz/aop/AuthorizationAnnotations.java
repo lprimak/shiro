@@ -18,6 +18,7 @@
  */
 package org.apache.shiro.authz.aop;
 
+import lombok.experimental.UtilityClass;
 import org.apache.shiro.aop.AnnotationResolver;
 import org.apache.shiro.authz.annotation.RequiresAuthentication;
 import org.apache.shiro.authz.annotation.RequiresGuest;
@@ -28,14 +29,10 @@ import org.apache.shiro.lang.util.ClassUtils;
 
 import java.lang.annotation.Annotation;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * The single registry of authorization annotations Shiro understands, with their handlers and method interceptors,
@@ -46,53 +43,49 @@ import java.util.stream.Collectors;
  *
  * @since 3.0.2
  */
+@UtilityClass
+@SuppressWarnings("checkstyle:HideUtilityClassConstructor")
 public final class AuthorizationAnnotations {
     private static final String JSR250_PROBE = "jakarta.annotation.security.RolesAllowed";
 
-    private static final Map<Class<? extends Annotation>, Function<AnnotationResolver, AuthorizingAnnotationMethodInterceptor>>
-            SHIRO = shiroRegistry();
-    private static final Map<Class<? extends Annotation>, Function<AnnotationResolver, AuthorizingAnnotationMethodInterceptor>>
-            JSR250 = jsr250Registry();
-    private static final Map<Class<? extends Annotation>, Function<AnnotationResolver, AuthorizingAnnotationMethodInterceptor>>
-            ALL = merge(SHIRO, JSR250);
+    private static final List<Registration> SHIRO = List.of(
+            new Registration(RequiresRoles.class, RoleAnnotationMethodInterceptor::new),
+            new Registration(RequiresPermissions.class, PermissionAnnotationMethodInterceptor::new),
+            new Registration(RequiresAuthentication.class, AuthenticatedAnnotationMethodInterceptor::new),
+            new Registration(RequiresUser.class, UserAnnotationMethodInterceptor::new),
+            new Registration(RequiresGuest.class, GuestAnnotationMethodInterceptor::new));
 
+    private static final List<Registration> ALL = Stream.concat(SHIRO.stream(),
+            !ClassUtils.isAvailable(JSR250_PROBE) ? Stream.empty() : Stream.of(
+            new Registration(jakarta.annotation.security.RolesAllowed.class, interceptorFor(RolesAllowedAnnotationHandler::new)),
+            new Registration(jakarta.annotation.security.PermitAll.class, interceptorFor(PermitAllAnnotationHandler::new)),
+            new Registration(jakarta.annotation.security.DenyAll.class, interceptorFor(DenyAllAnnotationHandler::new))))
+            .toList();
 
-    private AuthorizationAnnotations() {
+    private static final List<Class<? extends Annotation>> SHIRO_TYPES =
+            SHIRO.stream().<Class<? extends Annotation>>map(Registration::type).toList();
+
+    private static final List<Class<? extends Annotation>> ALL_TYPES =
+            ALL.stream().<Class<? extends Annotation>>map(Registration::type).toList();
+
+    private interface Factory extends Function<AnnotationResolver, AuthorizingAnnotationMethodInterceptor> {
     }
+
+    private record Registration(Class<? extends Annotation> type, Factory factory) { }
 
     /**
      * @return the five Shiro authorization annotations, in enforcement order
      */
-    public static Set<Class<? extends Annotation>> shiroTypes() {
-        return SHIRO.keySet();
+    public static List<Class<? extends Annotation>> shiroTypes() {
+        return SHIRO_TYPES;
     }
 
     /**
      * @return {@link #shiroTypes()} followed by the JSR-250 annotations ({@code @RolesAllowed}, {@code @PermitAll},
      * {@code @DenyAll}), which are present only when {@code jakarta.annotation} is on the class path
      */
-    public static Set<Class<? extends Annotation>> allTypes() {
-        return ALL.keySet();
-    }
-
-    /**
-     * Creates the handler enforcing the given annotation type.
-     *
-     * @param annotationType one of {@link #allTypes()}
-     * @return a new handler
-     * @throws IllegalArgumentException for an unknown annotation type
-     */
-    public static AuthorizingAnnotationHandler createHandler(Class<? extends Annotation> annotationType) {
-        return (AuthorizingAnnotationHandler) createMethodInterceptor(annotationType, null).getHandler();
-    }
-
-    private static AuthorizingAnnotationMethodInterceptor createMethodInterceptor(Class<? extends Annotation> annotationType,
-                                                                                  AnnotationResolver resolver) {
-        var factory = ALL.get(annotationType);
-        if (factory == null) {
-            throw new IllegalArgumentException("Cannot create a handler for the unknown annotation " + annotationType);
-        }
-        return factory.apply(resolver);
+    public static List<Class<? extends Annotation>> allTypes() {
+        return ALL_TYPES;
     }
 
     /**
@@ -104,43 +97,12 @@ public final class AuthorizationAnnotations {
      */
     public static List<AuthorizingAnnotationMethodInterceptor> createMethodInterceptors(
             AnnotationResolver resolver, Collection<Class<? extends Annotation>> annotationTypes) {
-        return annotationTypes.stream().map(type -> createMethodInterceptor(type, resolver)).collect(Collectors.toList());
+        return annotationTypes.stream().map(type -> ALL.stream().filter(registration -> registration.type() == type)
+                .findFirst().orElseThrow(() -> new IllegalArgumentException(
+                        "Cannot create a handler for the unknown annotation " + type)).factory().apply(resolver)).toList();
     }
 
-    private static Map<Class<? extends Annotation>, Function<AnnotationResolver, AuthorizingAnnotationMethodInterceptor>>
-    shiroRegistry() {
-        var registry = new LinkedHashMap<Class<? extends Annotation>,
-                Function<AnnotationResolver, AuthorizingAnnotationMethodInterceptor>>();
-        registry.put(RequiresRoles.class, RoleAnnotationMethodInterceptor::new);
-        registry.put(RequiresPermissions.class, PermissionAnnotationMethodInterceptor::new);
-        registry.put(RequiresAuthentication.class, AuthenticatedAnnotationMethodInterceptor::new);
-        registry.put(RequiresUser.class, UserAnnotationMethodInterceptor::new);
-        registry.put(RequiresGuest.class, GuestAnnotationMethodInterceptor::new);
-        return Collections.unmodifiableMap(registry);
-    }
-
-    private static Map<Class<? extends Annotation>, Function<AnnotationResolver, AuthorizingAnnotationMethodInterceptor>>
-    jsr250Registry() {
-        if (!ClassUtils.isAvailable(JSR250_PROBE)) {
-            return Map.of();
-        }
-        var registry = new LinkedHashMap<Class<? extends Annotation>,
-                Function<AnnotationResolver, AuthorizingAnnotationMethodInterceptor>>();
-        registry.put(jakarta.annotation.security.RolesAllowed.class, interceptorFor(RolesAllowedAnnotationHandler::new));
-        registry.put(jakarta.annotation.security.PermitAll.class, interceptorFor(PermitAllAnnotationHandler::new));
-        registry.put(jakarta.annotation.security.DenyAll.class, interceptorFor(DenyAllAnnotationHandler::new));
-        return Collections.unmodifiableMap(registry);
-    }
-
-    private static Function<AnnotationResolver, AuthorizingAnnotationMethodInterceptor> interceptorFor(
-            Supplier<AuthorizingAnnotationHandler> handler) {
-        return resolver -> new AuthorizingAnnotationMethodInterceptor(handler.get(), resolver) {
-        };
-    }
-
-    private static <K, V> Map<K, V> merge(Map<K, V> first, Map<K, V> second) {
-        var merged = new LinkedHashMap<K, V>(first);
-        merged.putAll(second);
-        return Collections.unmodifiableMap(merged);
+    private static Factory interceptorFor(Supplier<AuthorizingAnnotationHandler> handler) {
+        return resolver -> new AuthorizingAnnotationMethodInterceptor(handler.get(), resolver) { };
     }
 }
