@@ -18,7 +18,6 @@
  */
 package org.apache.shiro.authz.aop;
 
-import org.apache.shiro.aop.AnnotationHierarchy;
 import org.apache.shiro.aop.AnnotationResolver;
 import org.apache.shiro.authz.annotation.RequiresAuthentication;
 import org.apache.shiro.authz.annotation.RequiresGuest;
@@ -28,7 +27,6 @@ import org.apache.shiro.authz.annotation.RequiresUser;
 import org.apache.shiro.lang.util.ClassUtils;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -36,12 +34,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
- * The single registry of authorization annotations Shiro understands, their handlers and method interceptors,
- * together with the hierarchy-aware lookups every integration (Spring, Guice, CDI, JAX-RS, AspectJ) uses
- * to decide whether a class or method is secured.
+ * The single registry of authorization annotations Shiro understands, with their handlers and method interceptors,
+ * shared by every integration (Spring, Guice, CDI, JAX-RS, AspectJ).
  * <p>
  * The five Shiro annotations are always available. The JSR-250 annotations ({@code @RolesAllowed},
  * {@code @PermitAll}, {@code @DenyAll}) are registered only when {@code jakarta.annotation} is on the class path.
@@ -58,6 +56,7 @@ public final class AuthorizationAnnotations {
     private static final Map<Class<? extends Annotation>, Function<AnnotationResolver, AuthorizingAnnotationMethodInterceptor>>
             ALL = merge(SHIRO, JSR250);
 
+
     private AuthorizationAnnotations() {
     }
 
@@ -69,14 +68,8 @@ public final class AuthorizationAnnotations {
     }
 
     /**
-     * @return the JSR-250 annotations, or an empty set when {@code jakarta.annotation} is not available
-     */
-    public static Set<Class<? extends Annotation>> jsr250Types() {
-        return JSR250.keySet();
-    }
-
-    /**
-     * @return {@link #shiroTypes()} followed by {@link #jsr250Types()}
+     * @return {@link #shiroTypes()} followed by the JSR-250 annotations ({@code @RolesAllowed}, {@code @PermitAll},
+     * {@code @DenyAll}), which are present only when {@code jakarta.annotation} is on the class path
      */
     public static Set<Class<? extends Annotation>> allTypes() {
         return ALL.keySet();
@@ -93,16 +86,8 @@ public final class AuthorizationAnnotations {
         return (AuthorizingAnnotationHandler) createMethodInterceptor(annotationType, null).getHandler();
     }
 
-    /**
-     * Creates the method interceptor enforcing the given annotation type.
-     *
-     * @param annotationType one of {@link #allTypes()}
-     * @param resolver       the resolver to use, or {@code null} for the default
-     * @return a new method interceptor
-     * @throws IllegalArgumentException for an unknown annotation type
-     */
-    public static AuthorizingAnnotationMethodInterceptor createMethodInterceptor(Class<? extends Annotation> annotationType,
-                                                                                 AnnotationResolver resolver) {
+    private static AuthorizingAnnotationMethodInterceptor createMethodInterceptor(Class<? extends Annotation> annotationType,
+                                                                                  AnnotationResolver resolver) {
         var factory = ALL.get(annotationType);
         if (factory == null) {
             throw new IllegalArgumentException("Cannot create a handler for the unknown annotation " + annotationType);
@@ -120,45 +105,6 @@ public final class AuthorizationAnnotations {
     public static List<AuthorizingAnnotationMethodInterceptor> createMethodInterceptors(
             AnnotationResolver resolver, Collection<Class<? extends Annotation>> annotationTypes) {
         return annotationTypes.stream().map(type -> createMethodInterceptor(type, resolver)).collect(Collectors.toList());
-    }
-
-    /**
-     * Returns whether any of the given annotations is present on the class, its supertypes, or any of their methods.
-     *
-     * @param targetClass     the class to inspect
-     * @param annotationTypes the annotation types of interest
-     * @return {@code true} if the class should be intercepted at all
-     */
-    public static boolean isSecured(Class<?> targetClass, Collection<Class<? extends Annotation>> annotationTypes) {
-        return annotationTypes.stream().anyMatch(type -> AnnotationHierarchy.isPresent(targetClass, type));
-    }
-
-    /**
-     * Returns whether the invocation of the given method on the given target class is subject to any of the
-     * given annotations, at method or type level, anywhere in the hierarchy.
-     *
-     * @param method          the invoked method
-     * @param targetClass     the class the method is invoked on, or {@code null} for the method's declaring class
-     * @param annotationTypes the annotation types of interest
-     * @return {@code true} if the method invocation must be authorized
-     */
-    public static boolean isSecured(Method method, Class<?> targetClass,
-                                    Collection<Class<? extends Annotation>> annotationTypes) {
-        return annotationTypes.stream().anyMatch(type -> findAnnotation(method, targetClass, type) != null);
-    }
-
-    /**
-     * Finds the annotation governing an invocation of the method on the target class.
-     *
-     * @param method         the invoked method
-     * @param targetClass    the class the method is invoked on, or {@code null} for the method's declaring class
-     * @param annotationType the annotation type to look for
-     * @return the annotation, or {@code null}
-     * @see AnnotationHierarchy#findAnnotation(Method, Class, Class)
-     */
-    public static Annotation findAnnotation(Method method, Class<?> targetClass, Class<? extends Annotation> annotationType) {
-        return AnnotationHierarchy.findAnnotation(method,
-                targetClass != null ? targetClass : method.getDeclaringClass(), annotationType);
     }
 
     private static Map<Class<? extends Annotation>, Function<AnnotationResolver, AuthorizingAnnotationMethodInterceptor>>
@@ -180,10 +126,16 @@ public final class AuthorizationAnnotations {
         }
         var registry = new LinkedHashMap<Class<? extends Annotation>,
                 Function<AnnotationResolver, AuthorizingAnnotationMethodInterceptor>>();
-        registry.put(jakarta.annotation.security.RolesAllowed.class, RolesAllowedAnnotationMethodInterceptor::new);
-        registry.put(jakarta.annotation.security.PermitAll.class, PermitAllAnnotationMethodInterceptor::new);
-        registry.put(jakarta.annotation.security.DenyAll.class, DenyAllAnnotationMethodInterceptor::new);
+        registry.put(jakarta.annotation.security.RolesAllowed.class, interceptorFor(RolesAllowedAnnotationHandler::new));
+        registry.put(jakarta.annotation.security.PermitAll.class, interceptorFor(PermitAllAnnotationHandler::new));
+        registry.put(jakarta.annotation.security.DenyAll.class, interceptorFor(DenyAllAnnotationHandler::new));
         return Collections.unmodifiableMap(registry);
+    }
+
+    private static Function<AnnotationResolver, AuthorizingAnnotationMethodInterceptor> interceptorFor(
+            Supplier<AuthorizingAnnotationHandler> handler) {
+        return resolver -> new AuthorizingAnnotationMethodInterceptor(handler.get(), resolver) {
+        };
     }
 
     private static <K, V> Map<K, V> merge(Map<K, V> first, Map<K, V> second) {

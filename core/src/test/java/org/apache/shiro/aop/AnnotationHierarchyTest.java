@@ -165,10 +165,9 @@ class AnnotationHierarchyTest {
     }
 
     @Test
-    void staticMethodUsesDeclaringClass() throws Exception {
-        Method method = Unsecured.class.getMethod("open");
-        assertThat(AnnotationHierarchy.targetClass(null, method)).isEqualTo(Unsecured.class);
-        assertThat(AnnotationHierarchy.targetClass(new SecuredSubclass(), method)).isEqualTo(SecuredSubclass.class);
+    void nullTargetClassUsesDeclaringClass() throws Exception {
+        Method method = SecuredInterfaceImpl.class.getMethod("adminOnly");
+        assertThat(AnnotationHierarchy.findAnnotation(method, null, RequiresRoles.class)).isNotNull();
     }
 
     @Test

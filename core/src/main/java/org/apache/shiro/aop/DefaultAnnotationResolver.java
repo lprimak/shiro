@@ -53,7 +53,8 @@ public class DefaultAnnotationResolver implements AnnotationResolver {
         if (annotation != null) {
             return annotation;
         }
-        return AnnotationHierarchy.findAnnotation(m, AnnotationHierarchy.targetClass(mi.getThis(), m), clazz);
+        Object target = mi.getThis();
+        return AnnotationHierarchy.findAnnotation(m, target != null ? target.getClass() : null, clazz);
     }
 
     /**

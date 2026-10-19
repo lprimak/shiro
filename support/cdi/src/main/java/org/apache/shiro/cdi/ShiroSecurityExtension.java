@@ -24,6 +24,7 @@ import jakarta.enterprise.inject.spi.ProcessAnnotatedType;
 import jakarta.enterprise.inject.spi.WithAnnotations;
 import jakarta.inject.Scope;
 
+import org.apache.shiro.aop.AnnotationHierarchy;
 import org.apache.shiro.authz.annotation.RequiresAuthentication;
 import org.apache.shiro.authz.annotation.RequiresGuest;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
@@ -48,7 +49,8 @@ public class ShiroSecurityExtension implements Extension {
             RequiresRoles.class, RequiresUser.class, RolesAllowed.class,
             PermitAll.class, DenyAll.class,
             Scope.class, NormalScope.class, Stereotype.class}) ProcessAnnotatedType<T> pat) {
-        if (AuthorizationAnnotations.isSecured(pat.getAnnotatedType().getJavaClass(), AuthorizationAnnotations.allTypes())) {
+        Class<?> type = pat.getAnnotatedType().getJavaClass();
+        if (AuthorizationAnnotations.allTypes().stream().anyMatch(a -> AnnotationHierarchy.isPresent(type, a))) {
             pat.setAnnotatedType(new AnnotatedTypeWrapper<>(pat.getAnnotatedType(),
                     ShiroSecureAnnotated.class.getDeclaredAnnotations()[0]));
         }

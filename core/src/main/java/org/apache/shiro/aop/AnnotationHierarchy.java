@@ -90,20 +90,8 @@ public final class AnnotationHierarchy {
      * @param type the class to inspect
      * @return an unmodifiable list, never empty
      */
-    public static List<Class<?>> hierarchy(Class<?> type) {
+    static List<Class<?>> hierarchy(Class<?> type) {
         return CACHE.get(type).hierarchy();
-    }
-
-    /**
-     * Determines the class whose hierarchy should be searched for a method invocation: the runtime class
-     * of the invocation target, or the method's declaring class for static methods.
-     *
-     * @param target the object the method is invoked on, may be {@code null}
-     * @param method the invoked method
-     * @return the class to search
-     */
-    public static Class<?> targetClass(Object target, Method method) {
-        return target != null ? target.getClass() : method.getDeclaringClass();
     }
 
     /**
@@ -111,7 +99,8 @@ public final class AnnotationHierarchy {
      * (see the class documentation).
      *
      * @param method         the invoked method
-     * @param targetClass    the class to search, see {@link #targetClass(Object, Method)}
+     * @param targetClass    the runtime class of the invocation target, or {@code null} for the method's declaring
+     *                       class (static methods)
      * @param annotationType the annotation to look for
      * @param <A>            the annotation type
      * @return the annotation, or {@code null} if not found anywhere in the hierarchy
@@ -129,7 +118,7 @@ public final class AnnotationHierarchy {
      * @param <A>            the annotation type
      * @return the annotation, or {@code null} if not found
      */
-    public static <A extends Annotation> A findTypeAnnotation(Class<?> targetClass, Class<A> annotationType) {
+    static <A extends Annotation> A findTypeAnnotation(Class<?> targetClass, Class<A> annotationType) {
         return cached(targetClass, new Key(null, annotationType), () -> searchTypes(hierarchy(targetClass), annotationType));
     }
 
@@ -156,7 +145,7 @@ public final class AnnotationHierarchy {
      * @param <A>            the annotation type
      * @return the annotation, or {@code null} if not found
      */
-    public static <A extends Annotation> A findDeclared(AnnotatedElement element, Class<A> annotationType) {
+    static <A extends Annotation> A findDeclared(AnnotatedElement element, Class<A> annotationType) {
         return findDeclared(element, annotationType, new HashSet<>());
     }
 

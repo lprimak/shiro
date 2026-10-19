@@ -19,6 +19,7 @@
 package org.apache.shiro.web.jaxrs;
 
 
+import org.apache.shiro.aop.AnnotationHierarchy;
 import org.apache.shiro.authz.aop.AuthorizationAnnotations;
 import org.apache.shiro.web.filter.authz.AuthorizationFilter;
 
@@ -36,7 +37,7 @@ import static org.apache.shiro.web.jaxrs.SubjectPrincipalRequestFilter.SHIRO_WEB
 /**
  * Wraps {@link AuthorizationFilter filters} around JAX-RS resources that are annotated with Shiro annotations.
  * Annotations are resolved on the resource method, the resource class, their supertypes and interfaces, and as
- * meta-annotations, see {@link AuthorizationAnnotations#findAnnotation(java.lang.reflect.Method, Class, Class)}.
+ * meta-annotations, see {@link AnnotationHierarchy#findAnnotation(java.lang.reflect.Method, Class, Class)}.
  *
  * @since 1.4
  */
@@ -51,7 +52,7 @@ public class ShiroAnnotationFilterFeature implements DynamicFeature {
         }
 
         for (Class<? extends Annotation> annotationClass : annotations) {
-            Annotation authzSpec = AuthorizationAnnotations.findAnnotation(resourceInfo.getResourceMethod(),
+            Annotation authzSpec = AnnotationHierarchy.findAnnotation(resourceInfo.getResourceMethod(),
                     resourceInfo.getResourceClass(), annotationClass);
             if (authzSpec != null) {
                 authzSpecs.add(authzSpec);
