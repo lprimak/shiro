@@ -43,42 +43,19 @@ specific first; at each level the method declaration is inspected before the typ
 therefore overrides a type-level annotation of the same type, and a subclass can restrict inherited methods
 with a type-level annotation.
 
-CDI discovers beans that carry an annotation themselves through `@WithAnnotations`, so classes that are not
-annotated are never loaded for that purpose. A bean that is secured *only* through an interface or a
-superclass cannot be found that way. For those, `shiro-cdi` reads the Jandex index of the deployment
-(`META-INF/jandex.idx`) and registers a replacement bean carrying the security interceptor. Build the index
-with the Jandex Maven plugin, bound to the default `process-classes` phase so it is never stale:
+CDI inspects only the types the container reports for the observer in `shiro-cdi`: classes that carry one of
+these annotations, and classes that carry a bean-defining annotation (a scope or a stereotype). Of those, each
+class that is secured anywhere in its hierarchy gets the security interceptor. No class path scanning or index
+is needed, and classes that are neither annotated nor beans are never loaded for this purpose.
 
-[source,xml]
-----
-<plugin>
-    <groupId>io.smallrye</groupId>
-    <artifactId>jandex-maven-plugin</artifactId>
-    <version>3.6.0</version>
-    <executions>
-        <execution>
-            <goals>
-                <goal>jandex</goal>
-            </goals>
-        </execution>
-    </executions>
-</plugin>
-----
+Limitations:
 
-Every index on the class path is merged, so libraries may ship their own. Supertypes and annotation types
-from libraries that ship no index are indexed on the fly from their class files, as long as the implementing
-class itself is indexed.
-
-Limitations of the index-based discovery (all logged at deployment):
-
-* a class that is in no index is not discovered;
-* a class without a bean-defining annotation (scope or stereotype) is not replaced, because the container
-  would not have created a bean for it in `annotated` discovery mode;
-* `final` classes cannot be proxied and EJB session beans cannot be replaced by a synthetic bean. For EJBs the
-  container enforces JSR-250 itself; for Shiro annotations, annotate the class directly.
-
-In all of these cases, annotating the implementing class directly (even with a redundant annotation)
-is enough: directly annotated classes never depend on the index.
+* a class without a bean-defining annotation that is secured only through an interface or a superclass is not
+  intercepted. In `annotated` bean discovery mode such a class is not a bean at all. In `all` mode, add a scope
+  annotation to it, or annotate the class itself;
+* EJBs are intercepted when they carry a Shiro annotation themselves. An EJB secured only through an interface
+  or a superclass is not, so annotate the EJB class directly;
+* `final` classes cannot be intercepted.
 
 == Form resubmission
 

@@ -13,17 +13,13 @@
  */
 package org.apache.shiro.cdi;
 
-import jakarta.enterprise.inject.Instance;
-import jakarta.enterprise.inject.literal.NamedLiteral;
 import org.apache.shiro.authc.UsernamePasswordToken;
 import org.apache.shiro.authz.AuthorizationException;
 import org.apache.shiro.authz.UnauthenticatedException;
-import org.apache.shiro.cdi.fixtures.Counter;
 import org.apache.shiro.cdi.fixtures.DirectlySecuredBean;
 import org.apache.shiro.cdi.fixtures.InterfaceSecuredBean;
 import org.apache.shiro.cdi.fixtures.Jsr250Bean;
 import org.apache.shiro.cdi.fixtures.MethodInterfaceSecuredBean;
-import org.apache.shiro.cdi.fixtures.Ping;
 import org.apache.shiro.cdi.fixtures.SuperclassSecuredBean;
 import org.apache.shiro.cdi.fixtures.UnsecuredBean;
 import org.apache.shiro.mgt.DefaultSecurityManager;
@@ -42,8 +38,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Boots Weld SE against the module's test classes (indexed by the Jandex Maven plugin) and proves that
- * beans secured only through interfaces or superclasses are intercepted exactly like directly annotated ones.
+ * Boots Weld SE and proves that beans secured only through interfaces or superclasses are intercepted
+ * exactly like directly annotated ones.
  */
 class ShiroSecurityExtensionWeldTest {
     private static WeldContainer container;
@@ -54,7 +50,7 @@ class ShiroSecurityExtensionWeldTest {
         container = new Weld().disableDiscovery()
                 .addExtension(new ShiroSecurityExtension())
                 .addBeanClass(ShiroSecurityInterceptor.class)
-                .addPackages(Counter.class)
+                .addPackages(InterfaceSecuredBean.class)
                 .initialize();
         SimpleAccountRealm realm = new SimpleAccountRealm();
         realm.addAccount("alice", "secret", "user");
@@ -73,24 +69,7 @@ class ShiroSecurityExtensionWeldTest {
         InterfaceSecuredBean bean = container.select(InterfaceSecuredBean.class).get();
         assertThatThrownBy(() -> asGuest(bean::adminOnly)).isInstanceOf(AuthorizationException.class);
         assertThatThrownBy(() -> as("alice", bean::adminOnly)).isInstanceOf(AuthorizationException.class);
-        assertThat(as("root", bean::adminOnly)).isEqualTo("admin:true");
-    }
-
-    @Test
-    void replacedBeanIsRegisteredExactlyOnce() {
-        Instance<InterfaceSecuredBean> beans = container.select(InterfaceSecuredBean.class);
-        assertThat(beans.isResolvable()).isTrue();
-        Instance<String> produced = container.select(String.class, NamedLiteral.of("fromInterfaceSecuredBean"));
-        assertThat(produced.isResolvable()).as("producer of the replaced bean registered once").isTrue();
-        // the producer and the observer are business methods of the secured bean, so they are intercepted too
-        assertThatThrownBy(() -> asGuest(produced::get)).isInstanceOf(AuthorizationException.class);
-        assertThat(as("root", produced::get)).isEqualTo("produced");
-        Counter counter = container.select(Counter.class).get();
-        as("root", () -> {
-            container.getBeanManager().getEvent().fire(new Ping());
-            return null;
-        });
-        assertThat(counter.getEvents()).as("observer of the replaced bean registered once").isEqualTo(1);
+        assertThat(as("root", bean::adminOnly)).isEqualTo("admin");
     }
 
     @Test

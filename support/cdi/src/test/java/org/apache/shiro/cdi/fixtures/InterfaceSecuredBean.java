@@ -13,35 +13,16 @@
  */
 package org.apache.shiro.cdi.fixtures;
 
-
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Observes;
-import jakarta.enterprise.inject.Produces;
-import jakarta.inject.Inject;
-import jakarta.inject.Named;
 import org.apache.shiro.aop.fixtures.SecuredInterface;
 
 /**
- * Secured only through {@link SecuredInterface}; also declares a producer and an observer that must be
- * registered exactly once after the synthetic replacement.
+ * Secured only through {@link SecuredInterface}.
  */
 @ApplicationScoped
 public class InterfaceSecuredBean implements SecuredInterface {
-    @Inject
-    private Counter counter;
-
     @Override
     public String adminOnly() {
-        return "admin:" + (counter != null);
-    }
-
-    @Produces
-    @Named("fromInterfaceSecuredBean")
-    public String produced() {
-        return "produced";
-    }
-
-    public void onPing(@Observes Ping ping) {
-        counter.increment();
+        return "admin";
     }
 }

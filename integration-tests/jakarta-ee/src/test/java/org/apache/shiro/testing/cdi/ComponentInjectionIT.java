@@ -124,7 +124,6 @@ public class ComponentInjectionIT {
                         "<payara-web-app><class-loader delegate=\"false\"/></payara-web-app>"),
                         "payara-web.xml")
                 .addPackages(true, "org.apache.shiro")
-                .addPackages(true, "org.jboss.jandex")
                 .addPackages(true, "org.apache.commons")
                 .deletePackages(true, "org.apache.shiro.testing")
                 .deletePackages(true, "org.apache.shiro.ee")

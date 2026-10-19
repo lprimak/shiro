@@ -38,7 +38,6 @@
         <module>guice</module>
         <module>servlet-plugin</module>
         <module>jaxrs</module>
-        <module>jandex</module>
         <module>cdi</module>
         <module>jakarta-ee</module>
         <module>spring</module>

@@ -23,8 +23,6 @@ import org.apache.shiro.aop.AnnotationResolver;
 import org.apache.shiro.aop.MethodInvocation;
 import org.apache.shiro.authz.AuthorizationException;
 
-import java.lang.annotation.Annotation;
-
 
 /**
  * An <tt>AnnotationMethodInterceptor</tt> that asserts the calling code is authorized to execute the method
@@ -80,20 +78,12 @@ public abstract class AuthorizingAnnotationMethodInterceptor extends AnnotationM
      * {@link AuthorizingAnnotationHandler#assertAuthorized(java.lang.annotation.Annotation)
      * handler.assertAuthorized(annotation)}.
      *
-     * <p>
-     * If no annotation of the handled type applies to the invocation, the invocation is not subject to this
-     * interceptor and is allowed to proceed.
-     *
      * @param mi the <code>MethodInvocation</code> to check to see if it is allowed to proceed/execute.
      * @throws AuthorizationException if the method invocation is not allowed to continue/execute.
      */
     public void assertAuthorized(MethodInvocation mi) throws AuthorizationException {
-        Annotation annotation = getAnnotation(mi);
-        if (annotation == null) {
-            return;
-        }
         try {
-            ((AuthorizingAnnotationHandler) getHandler()).assertAuthorized(annotation);
+            ((AuthorizingAnnotationHandler) getHandler()).assertAuthorized(getAnnotation(mi));
         } catch (AuthorizationException ae) {
             // Annotation handler doesn't know why it was called, so add the information here if possible.
             // Don't wrap the exception here since we don't want to mask the specific exception, such as
