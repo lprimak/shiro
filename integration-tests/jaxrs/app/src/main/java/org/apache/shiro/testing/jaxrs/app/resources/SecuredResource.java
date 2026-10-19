@@ -20,13 +20,19 @@
 package org.apache.shiro.testing.jaxrs.app.resources;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
 import org.apache.shiro.SecurityUtils;
 
 /**
  * Secured only through {@link SecuredApi}.
  */
 @ApplicationScoped
+@Path("/secured")
+@Produces("text/plain")
 public class SecuredResource implements SecuredApi {
+    @GET
     @Override
     public String whoami() {
         return String.valueOf(SecurityUtils.getSubject().getPrincipal());

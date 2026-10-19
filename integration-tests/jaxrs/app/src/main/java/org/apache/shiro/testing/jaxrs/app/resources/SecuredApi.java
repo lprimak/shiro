@@ -19,18 +19,12 @@
 
 package org.apache.shiro.testing.jaxrs.app.resources;
 
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.Produces;
 import org.apache.shiro.authz.annotation.RequiresUser;
 
 /**
- * JAX-RS interface carrying the security annotation; the resource class implementing it has none.
+ * Interface carrying the security annotation; the resource class implementing it has none.
  */
 @RequiresUser
-@Path("/secured")
-@Produces("text/plain")
 public interface SecuredApi {
-    @GET
     String whoami();
 }
