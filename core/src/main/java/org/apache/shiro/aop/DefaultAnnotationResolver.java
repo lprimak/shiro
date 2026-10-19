@@ -68,7 +68,7 @@ public class DefaultAnnotationResolver implements AnnotationResolver {
      * @return the type-level annotation found on the class, its superclasses or interfaces
      * @deprecated use {@link #getAnnotation(MethodInvocation, Class)}
      */
-    @Deprecated
+    @Deprecated(since = "3.0.2")
     public static Annotation getAnnotationFromClassHierarchy(Class<?> targetClass, Class<? extends Annotation> clazz) {
         return StreamSupport.stream(ClassUtils.hierarchy(targetClass, Interfaces.INCLUDE).spliterator(), false)
                 .map(type -> AnnotationHierarchy.findDeclared(type, clazz)).filter(Objects::nonNull).findFirst().orElse(null);
