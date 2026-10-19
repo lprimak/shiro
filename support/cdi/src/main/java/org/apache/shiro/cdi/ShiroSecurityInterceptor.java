@@ -22,9 +22,7 @@ import jakarta.interceptor.AroundInvoke;
 import jakarta.interceptor.Interceptor;
 import jakarta.interceptor.InvocationContext;
 
-import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
-import lombok.ToString;
 import lombok.experimental.Delegate;
 import org.apache.shiro.aop.DefaultAnnotationResolver;
 import org.apache.shiro.aop.MethodInvocation;
@@ -51,7 +49,7 @@ public class ShiroSecurityInterceptor implements Serializable {
 
     @AroundInvoke
     @SneakyThrows
-    public Object propagateShiroSecurity(final InvocationContext ctx) throws Exception {
+    public Object propagateShiroSecurity(final InvocationContext ctx) {
         return INTERCEPTOR.invoke(new InvocationAdapter(ctx));
     }
 
@@ -59,11 +57,7 @@ public class ShiroSecurityInterceptor implements Serializable {
      * Adapts a CDI {@link InvocationContext} to a Shiro {@link MethodInvocation}.
      * {@code proceed} and {@code getMethod} are delegated, the other two have different names in CDI.
      */
-    @ToString
-    @RequiredArgsConstructor
-    private static final class InvocationAdapter implements MethodInvocation {
-        private final @Delegate InvocationContext context;
-
+    private record InvocationAdapter(@Delegate InvocationContext context) implements MethodInvocation {
         @Override
         public Object[] getArguments() {
             return getParameters();
