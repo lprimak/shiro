@@ -11,18 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.shiro.cdi.fixtures;
+package org.apache.shiro.testing.jaxrs;
 
-
-import jakarta.enterprise.context.Dependent;
-import org.apache.shiro.aop.fixtures.SecuredBase;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.ws.rs.core.Response;
 
 /**
- * Secured only through the type-level annotation on {@link SecuredBase}.
+ * Secured only through {@link RolesSecured}
  */
-@Dependent
-public class SuperclassSecuredBean extends SecuredBase {
-    public String ownOperation() {
-        return "own";
+@ApplicationScoped
+public class RolesSecuredBean implements RolesSecured {
+    @Override
+    public Response userRole() {
+        return Response.ok().build();
     }
 }

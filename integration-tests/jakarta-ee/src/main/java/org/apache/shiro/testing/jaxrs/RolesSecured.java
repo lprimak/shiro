@@ -11,24 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.shiro.cdi.fixtures;
+package org.apache.shiro.testing.jaxrs;
 
+import org.apache.shiro.authz.annotation.RequiresRoles;
 
-import jakarta.enterprise.context.Dependent;
-import org.apache.shiro.aop.fixtures.MethodSecuredInterface;
+import jakarta.ws.rs.core.Response;
 
 /**
- * Secured only through a method-level annotation on {@link MethodSecuredInterface}.
+ * Role requirement declared on the interface only
  */
-@Dependent
-public class MethodInterfaceSecuredBean implements MethodSecuredInterface {
-    @Override
-    public String read() {
-        return "read";
-    }
-
-    @Override
-    public String open() {
-        return "open";
-    }
+@RequiresRoles("user")
+public interface RolesSecured {
+    Response userRole();
 }

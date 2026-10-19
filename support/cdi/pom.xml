@@ -34,7 +34,6 @@
         <module.name>cdi</module.name>
         <delombok.phase>prepare-package</delombok.phase>
         <javadoc.sourcepath>${javadoc.delombok.sourcepath}</javadoc.sourcepath>
-        <weld.version>6.0.4.Final</weld.version>
     </properties>
 
     <dependencies>
@@ -63,19 +62,6 @@
         </dependency>
 
         <!-- Test Dependencies -->
-        <dependency>
-            <groupId>org.apache.shiro</groupId>
-            <artifactId>shiro-core</artifactId>
-            <classifier>tests</classifier>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.jboss.weld.se</groupId>
-            <artifactId>weld-se-shaded</artifactId>
-            <version>${weld.version}</version>
-            <scope>test</scope>
-        </dependency>
         <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
