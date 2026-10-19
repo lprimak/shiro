@@ -37,11 +37,16 @@ Shiro's authorization annotations (`@RequiresRoles`, `@RequiresPermissions`, `@R
 `@RequiresUser`, `@RequiresGuest`) and the JSR-250 annotations (`@RolesAllowed`, `@PermitAll`, `@DenyAll`)
 are honored wherever they appear in a bean's type hierarchy: on the bean class, on a superclass, on an
 implemented interface, on an overridden or interface method, or as a meta-annotation of a composed annotation.
-The resolution rules are the same for the Spring, Guice, CDI and JAX-RS integrations: the closest declaration
-wins. The invoked method is inspected first, then the bean class, its superclasses and its interfaces, most
-specific first; at each level the method declaration is inspected before the type. A method-level annotation
-therefore overrides a type-level annotation of the same type, and a subclass can restrict inherited methods
-with a type-level annotation.
+The Guice, CDI and JAX-RS integrations share the same resolution rules: the closest declaration wins.
+The invoked method is inspected first, then the bean class, its superclasses and its interfaces, most
+specific first. At each level the method declaration is inspected before the type.
+A method-level annotation therefore overrides a type-level annotation of the same type.
+A subclass can also restrict inherited methods with a type-level annotation.
+
+The Spring integration keeps using Spring's own annotation lookup, which Spring users already expect.
+It also finds annotations on interfaces and superclasses.
+It prefers a method-level annotation anywhere in the hierarchy over a type-level one.
+A type-level annotation on a subclass therefore does not override a method annotation on its superclass in Spring.
 
 CDI inspects only the types the container reports for the observer in `shiro-cdi`: classes that carry one of
 these annotations, and classes that carry a bean-defining annotation (a scope or a stereotype). Of those, each
