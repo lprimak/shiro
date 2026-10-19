@@ -48,10 +48,12 @@ It also finds annotations on interfaces and superclasses.
 It prefers a method-level annotation anywhere in the hierarchy over a type-level one.
 A type-level annotation on a subclass therefore does not override a method annotation on its superclass in Spring.
 
-CDI inspects only the types the container reports for the observer in `shiro-cdi`: classes that carry one of
-these annotations, and classes that carry a bean-defining annotation (a scope or a stereotype). Of those, each
-class that is secured anywhere in its hierarchy gets the security interceptor. No class path scanning or index
-is needed, and classes that are neither annotated nor beans are never loaded for this purpose.
+CDI inspects only the types the container reports to the two observers in `shiro-cdi`.
+The first observer receives classes that carry one of these annotations.
+Those classes get the security interceptor without any further inspection.
+The second observer receives classes that carry a bean-defining annotation (a scope or a stereotype).
+Such a class gets the interceptor when one of its superclasses or interfaces is secured.
+No class path scanning or index is needed, and classes that are neither annotated nor beans are never loaded for this purpose.
 
 Limitations:
 

@@ -13,6 +13,8 @@
  */
 package org.apache.shiro.cdi;
 
+import java.lang.annotation.Annotation;
+import java.util.stream.Stream;
 import jakarta.annotation.security.DenyAll;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
@@ -44,15 +46,27 @@ public class ShiroSecurityExtension implements Extension {
     public static class ShiroSecureAnnotated {
     }
 
+    private static final Annotation SHIRO_SECURE = ShiroSecureAnnotated.class.getDeclaredAnnotations()[0];
+
     public <T> void addSecurity(@Observes @WithAnnotations({
             RequiresAuthentication.class, RequiresGuest.class, RequiresPermissions.class,
             RequiresRoles.class, RequiresUser.class, RolesAllowed.class,
-            PermitAll.class, DenyAll.class,
+            PermitAll.class, DenyAll.class}) ProcessAnnotatedType<T> pat) {
+        pat.setAnnotatedType(new AnnotatedTypeWrapper<>(pat.getAnnotatedType(), SHIRO_SECURE));
+    }
+
+    /**
+     * A bean with a scope or stereotype is secured if a superclass or an interface is.
+     * The bean's own annotations are not inspected, the observer above already handles them.
+     */
+    public <T> void addInheritedSecurity(@Observes @WithAnnotations({
             Scope.class, NormalScope.class, Stereotype.class}) ProcessAnnotatedType<T> pat) {
         Class<?> type = pat.getAnnotatedType().getJavaClass();
-        if (AuthorizationAnnotations.allTypes().stream().anyMatch(a -> AnnotationHierarchy.isPresent(type, a))) {
-            pat.setAnnotatedType(new AnnotatedTypeWrapper<>(pat.getAnnotatedType(),
-                    ShiroSecureAnnotated.class.getDeclaredAnnotations()[0]));
+        if (Stream.concat(Stream.of(type.getSuperclass()), Stream.of(type.getInterfaces()))
+                .filter(parent -> parent != null && parent != Object.class)
+                .anyMatch(parent -> AuthorizationAnnotations.allTypes().stream()
+                        .anyMatch(annotation -> AnnotationHierarchy.isPresent(parent, annotation)))) {
+            pat.setAnnotatedType(new AnnotatedTypeWrapper<>(pat.getAnnotatedType(), SHIRO_SECURE));
         }
     }
 }
