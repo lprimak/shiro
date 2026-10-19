@@ -67,9 +67,9 @@ class ShiroAnnotationFilterFeatureTest {
     }
 
     private static AnnotationAuthorizationFilter registeredFilter(FeatureContext context) {
-        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        ArgumentCaptor<AnnotationAuthorizationFilter> captor = ArgumentCaptor.forClass(AnnotationAuthorizationFilter.class);
         verify(context).register(captor.capture(), eq(Priorities.AUTHORIZATION));
-        return (AnnotationAuthorizationFilter) captor.getValue();
+        return captor.getValue();
     }
 
     @Test

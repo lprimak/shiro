@@ -64,7 +64,7 @@ class AuthorizationAnnotationsTest {
     }
 
     private static AuthorizingAnnotationHandler handler(Class<? extends Annotation> type) {
-        return (AuthorizingAnnotationHandler) AuthorizationAnnotations.createMethodInterceptors(null, List.of(type))
+        return AuthorizationAnnotations.createMethodInterceptors(null, List.of(type))
                 .get(0).getHandler();
     }
 }

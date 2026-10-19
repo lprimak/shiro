@@ -100,12 +100,11 @@ public final class AnnotationHierarchy {
      * @param <A>            the annotation type
      * @return the annotation, or {@code null} if not found anywhere in the hierarchy
      */
-    @SuppressWarnings("unchecked")
     public static <A extends Annotation> A findAnnotation(Method method, Class<?> targetClass, Class<A> annotationType) {
         Class<?> searchRoot = targetClass != null ? targetClass : method.getDeclaringClass();
         Cache cache = cacheFor(searchRoot);
-        return (A) cache.found().computeIfAbsent(new Key(method, annotationType), key -> Optional.ofNullable(
-                searchInvocation(method, searchRoot, cache.hierarchy(), annotationType))).orElse(null);
+        return annotationType.cast(cache.found().computeIfAbsent(new Key(method, annotationType), key -> Optional.ofNullable(
+                searchInvocation(method, searchRoot, cache.hierarchy(), annotationType))).orElse(null));
     }
 
     /**

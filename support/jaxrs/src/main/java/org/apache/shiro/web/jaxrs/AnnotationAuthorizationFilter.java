@@ -46,7 +46,7 @@ public class AnnotationAuthorizationFilter implements ContainerRequestFilter {
         Map<AuthorizingAnnotationHandler, Annotation> authChecks =
                 new HashMap<AuthorizingAnnotationHandler, Annotation>(authzSpecs.size());
         for (Annotation authSpec : authzSpecs) {
-            authChecks.put((AuthorizingAnnotationHandler) AuthorizationAnnotations
+            authChecks.put(AuthorizationAnnotations
                     .createMethodInterceptors(null, List.of(authSpec.annotationType())).get(0).getHandler(), authSpec);
         }
         this.authzChecks = Collections.unmodifiableMap(authChecks);
