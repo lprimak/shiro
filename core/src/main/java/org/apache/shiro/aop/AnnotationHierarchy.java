@@ -53,7 +53,9 @@ import java.util.stream.StreamSupport;
  * At every step the annotation may be present directly or as a meta-annotation (composed annotation).
  * <p>
  * Results are cached per target class using {@link ClassValue}.
- * Cache entries are reclaimed together with the class loader that defined the target class.
+ * Only classes defined by this class's loader, or by a loader that has it as an ancestor, are cached.
+ * A cache entry in any other class could keep this class's loader from being reclaimed.
+ * Those classes are searched on every call instead.
  *
  * @since 3.0.2
  */
@@ -65,8 +67,7 @@ public final class AnnotationHierarchy {
     private static final ClassValue<Cache> CACHE = new ClassValue<>() {
         @Override
         protected Cache computeValue(@NonNull Class<?> type) {
-            return new Cache(StreamSupport.stream(ClassUtils.hierarchy(type, Interfaces.INCLUDE).spliterator(), false)
-                    .filter(candidate -> candidate != Object.class).toList());
+            return new Cache(type);
         }
     };
 
@@ -80,8 +81,10 @@ public final class AnnotationHierarchy {
      */
     private record Cache(List<Class<?>> hierarchy, Map<Key, Optional<Annotation>> found,
                          Map<Class<? extends Annotation>, Boolean> present) {
-        Cache(List<Class<?>> hierarchy) {
-            this(hierarchy, new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
+        Cache(Class<?> type) {
+            this(StreamSupport.stream(ClassUtils.hierarchy(type, Interfaces.INCLUDE).spliterator(), false)
+                    .filter(candidate -> candidate != Object.class).toList(),
+                    new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
         }
     }
 
@@ -99,8 +102,9 @@ public final class AnnotationHierarchy {
     @SuppressWarnings("unchecked")
     public static <A extends Annotation> A findAnnotation(Method method, Class<?> targetClass, Class<A> annotationType) {
         Class<?> searchRoot = targetClass != null ? targetClass : method.getDeclaringClass();
-        return (A) CACHE.get(searchRoot).found().computeIfAbsent(new Key(method, annotationType),
-                var -> Optional.ofNullable(searchInvocation(method, searchRoot, annotationType))).orElse(null);
+        Cache cache = cacheFor(searchRoot);
+        return (A) cache.found().computeIfAbsent(new Key(method, annotationType), key -> Optional.ofNullable(
+                searchInvocation(method, searchRoot, cache.hierarchy(), annotationType))).orElse(null);
     }
 
     /**
@@ -113,7 +117,7 @@ public final class AnnotationHierarchy {
      * @return {@code true} if the class or any of its methods is (directly or indirectly) annotated
      */
     public static boolean isPresent(Class<?> targetClass, Class<? extends Annotation> annotationType) {
-        Cache cache = CACHE.get(targetClass);
+        Cache cache = cacheFor(targetClass);
         return cache.present().computeIfAbsent(annotationType, type -> cache.hierarchy().stream()
                 .anyMatch(declaring -> findDeclared(declaring, type) != null || Arrays.stream(declaring.getDeclaredMethods())
                         .anyMatch(method -> !method.isBridge() && !method.isSynthetic() && findDeclared(method, type) != null)));
@@ -131,13 +135,14 @@ public final class AnnotationHierarchy {
         return findDeclared(element, annotationType, new HashSet<>());
     }
 
-    private static <A extends Annotation> A searchInvocation(Method method, Class<?> targetClass, Class<A> annotationType) {
+    private static <A extends Annotation> A searchInvocation(Method method, Class<?> targetClass,
+                                                             List<Class<?>> hierarchy, Class<A> annotationType) {
         A annotation = findDeclared(method, annotationType);
         if (annotation != null) {
             return annotation;
         }
         Map<Class<?>, Method> overridden = overriddenMethods(method, targetClass);
-        for (Class<?> type : CACHE.get(targetClass).hierarchy()) {
+        for (Class<?> type : hierarchy) {
             Method declared = overridden.get(type);
             annotation = declared != null ? findDeclared(declared, annotationType) : null;
             annotation = annotation != null ? annotation : findDeclared(type, annotationType);
@@ -173,5 +178,19 @@ public final class AnnotationHierarchy {
                 .filter(metaType -> !metaType.getName().startsWith(JAVA_LANG_ANNOTATION) && visited.add(metaType))
                 .map(metaType -> findDeclared(metaType, annotationType, visited))
                 .filter(Objects::nonNull).findFirst().orElse(null);
+    }
+
+    /**
+     * Returns the cache of a class whose cache entry cannot keep this class's loader alive.
+     * Any other class gets a throwaway cache that is never stored in the {@link ClassValue}.
+     */
+    private static Cache cacheFor(Class<?> type) {
+        ClassLoader own = AnnotationHierarchy.class.getClassLoader();
+        for (ClassLoader loader = type.getClassLoader(); loader != null; loader = loader.getParent()) {
+            if (loader == own) {
+                return CACHE.get(type);
+            }
+        }
+        return own == null ? CACHE.get(type) : new Cache(type);
     }
 }
