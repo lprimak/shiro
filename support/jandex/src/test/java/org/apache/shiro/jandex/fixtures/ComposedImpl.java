@@ -22,7 +22,7 @@ package org.apache.shiro.jandex.fixtures;
 import jakarta.enterprise.context.ApplicationScoped;
 
 /**
- * Candidate: implementor of an interface secured by a composed annotation.
+ * Candidate: implementation of an interface secured by a composed annotation.
  */
 @ApplicationScoped
 public class ComposedImpl implements ComposedInterface {

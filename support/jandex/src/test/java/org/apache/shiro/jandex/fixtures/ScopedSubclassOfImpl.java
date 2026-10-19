@@ -20,7 +20,7 @@ package org.apache.shiro.jandex.fixtures;
 
 
 /**
- * Candidate: subclass of an implementor, scoped.
+ * Candidate: subclass of an implementation, scoped.
  */
 @jakarta.enterprise.context.RequestScoped
 public class ScopedSubclassOfImpl extends ScopedImpl {
