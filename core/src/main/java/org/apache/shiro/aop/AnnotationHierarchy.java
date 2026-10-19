@@ -51,7 +51,7 @@ import java.util.stream.StreamSupport;
  * Results are cached per target class using {@link ClassValue}, so cache entries are reclaimed together with
  * the class loader that defined the target class.
  *
- * @since 2.1
+ * @since 3.0.2
  */
 public final class AnnotationHierarchy {
     private static final String JAVA_LANG_ANNOTATION = "java.lang.annotation.";

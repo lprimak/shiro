@@ -61,7 +61,7 @@ public class DefaultAnnotationResolver implements AnnotationResolver {
      * @param targetClass the class to inspect
      * @param clazz       the annotation type
      * @return the type-level annotation found on the class, its superclasses or interfaces
-     * @deprecated use {@link AnnotationHierarchy#findTypeAnnotation(Class, Class)}
+     * @deprecated use {@link #getAnnotation(MethodInvocation, Class)}
      */
     @Deprecated
     public static Annotation getAnnotationFromClassHierarchy(Class<?> targetClass, Class<? extends Annotation> clazz) {

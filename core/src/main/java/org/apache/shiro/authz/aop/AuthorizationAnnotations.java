@@ -44,7 +44,7 @@ import java.util.stream.Collectors;
  * The five Shiro annotations are always available. The JSR-250 annotations ({@code @RolesAllowed},
  * {@code @PermitAll}, {@code @DenyAll}) are registered only when {@code jakarta.annotation} is on the class path.
  *
- * @since 2.1
+ * @since 3.0.2
  */
 public final class AuthorizationAnnotations {
     private static final String JSR250_PROBE = "jakarta.annotation.security.RolesAllowed";

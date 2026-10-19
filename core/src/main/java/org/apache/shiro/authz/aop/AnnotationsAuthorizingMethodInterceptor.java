@@ -62,7 +62,7 @@ public abstract class AnnotationsAuthorizingMethodInterceptor extends Authorizin
      *
      * @param resolver        the resolver shared by all method interceptors, or {@code null} for the default
      * @param annotationTypes the annotation types to enforce, see {@link AuthorizationAnnotations#allTypes()}
-     * @since 2.1
+     * @since 3.0.2
      */
     public AnnotationsAuthorizingMethodInterceptor(AnnotationResolver resolver,
                                                    Collection<Class<? extends Annotation>> annotationTypes) {
