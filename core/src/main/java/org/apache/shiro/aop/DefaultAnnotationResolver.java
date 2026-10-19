@@ -54,10 +54,6 @@ public class DefaultAnnotationResolver implements AnnotationResolver {
             String msg = MethodInvocation.class.getName() + " parameter incorrectly constructed.  getMethod() returned null";
             throw new IllegalArgumentException(msg);
         }
-        Annotation annotation = AnnotationHierarchy.findDeclared(m, clazz);
-        if (annotation != null) {
-            return annotation;
-        }
         Object target = mi.getThis();
         return AnnotationHierarchy.findAnnotation(m, target != null ? target.getClass() : null, clazz);
     }

@@ -142,6 +142,9 @@ public final class AnnotationHierarchy {
         if (annotation != null) {
             return annotation;
         }
+        if (!isPresent(targetClass, annotationType)) {
+            return null;
+        }
         Map<Class<?>, Method> overridden = overriddenMethods(method, targetClass);
         for (Class<?> type : hierarchy) {
             Method declared = overridden.get(type);

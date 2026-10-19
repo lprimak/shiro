@@ -75,6 +75,7 @@ public class AnnotationResolverTest {
         MethodInvocation methodInvocation = createMock(MethodInvocation.class);
         Method method = MyFixture.class.getDeclaredMethod("operateThat");
         expect(methodInvocation.getMethod()).andReturn(method);
+        expect(methodInvocation.getThis()).andReturn(new MyFixture());
         replay(methodInvocation);
         assertThat(annotationResolver.getAnnotation(methodInvocation, RequiresUser.class)).isNotNull();
     }
