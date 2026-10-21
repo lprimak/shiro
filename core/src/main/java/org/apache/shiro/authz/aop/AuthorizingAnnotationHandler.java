@@ -28,7 +28,6 @@ import org.apache.shiro.authz.AuthorizationException;
 import org.apache.shiro.config.ConfigurationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import static org.bouncycastle.util.Arrays.isNullOrEmpty;
 
 /**
  * An AnnotationHandler that executes authorization (access control) behavior based on directive(s) found in a
@@ -78,8 +77,8 @@ public abstract class AuthorizingAnnotationHandler extends AnnotationHandler {
      * {@code roles} filters without arguments, or {@code @RequiresPermissions({})}.
      * <p/>
      * Such configuration performs no check, which is almost always a mistake. By default a warning is logged and the
-     * previous behavior is kept. If {@link #setFailOnEmptyAuthorizationConfig(boolean) failOnEmptyAuthorizationConfig}
-     * is set, or the
+     * previous behavior is kept. If
+     * {@link #setFailOnEmptyAuthorizationConfig(boolean) failOnEmptyAuthorizationConfig} is set, or the
      * {@value #STRICT_PROPERTY} system property is {@code true}, filters deny access and annotation handlers throw a
      * {@link org.apache.shiro.config.ConfigurationException}.
      *
@@ -110,7 +109,7 @@ public abstract class AuthorizingAnnotationHandler extends AnnotationHandler {
          * @return {@code true} if the configuration is empty and must be rejected
          */
         public boolean isEmptyConfigRejected(String[] values) {
-            return failOnEmptyAuthorizationConfig && isNullOrEmpty(values);
+            return failOnEmptyAuthorizationConfig && (values == null || values.length == 0);
         }
 
         /**
@@ -120,7 +119,7 @@ public abstract class AuthorizingAnnotationHandler extends AnnotationHandler {
          * @param what   describes the configuration, for the log message
          */
         public void warnIfEmptyConfig(String[] values, String what) {
-            if (isNullOrEmpty(values)) {
+            if (values == null || values.length == 0) {
                 LOGGER.warn("{} specifies no permissions or roles, so it {}. Specify at least one.", what,
                         failOnEmptyAuthorizationConfig ? "is rejected" : "performs no check");
             }
