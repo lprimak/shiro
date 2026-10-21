@@ -58,6 +58,7 @@ public class RoleAnnotationHandler extends AuthorizingAnnotationHandler {
         RequiresRoles rrAnnotation = (RequiresRoles) a;
         String[] roles = rrAnnotation.value();
 
+        emptyConfigPolicy.checkConfigNotEmpty(roles, "RequiresRoles");
         if (roles.length == 1) {
             getSubject().checkRole(roles[0]);
             return;

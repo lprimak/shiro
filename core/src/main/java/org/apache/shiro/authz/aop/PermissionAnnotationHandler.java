@@ -71,6 +71,7 @@ public class PermissionAnnotationHandler extends AuthorizingAnnotationHandler {
         String[] perms = getAnnotationValue(a);
         Subject subject = getSubject();
 
+        emptyConfigPolicy.checkConfigNotEmpty(perms, "RequiresPermissions");
         if (perms.length == 1) {
             subject.checkPermission(perms[0]);
             return;

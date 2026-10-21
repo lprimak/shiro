@@ -33,6 +33,8 @@
     <packaging>bundle</packaging>
     <properties>
         <module.name>web</module.name>
+        <delombok.phase>prepare-package</delombok.phase>
+        <javadoc.sourcepath>${javadoc.delombok.sourcepath}</javadoc.sourcepath>
     </properties>
 
     <dependencies>
@@ -53,6 +55,13 @@
         <dependency>
             <groupId>org.owasp.encoder</groupId>
             <artifactId>encoder</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+            <scope>provided</scope>
+            <optional>true</optional>
         </dependency>
         <!-- Test dependencies - scope set appropriately already in the parent pom-->
         <dependency>
@@ -93,6 +102,18 @@
 
     <build>
         <plugins>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <annotationProcessorPath>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </annotationProcessorPath>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.felix</groupId>
                 <artifactId>maven-bundle-plugin</artifactId>

@@ -19,10 +19,16 @@
 package org.apache.shiro.web.filter.authz;
 
 import java.io.IOException;
+import jakarta.servlet.Filter;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 
+import lombok.experimental.Delegate;
+import org.apache.shiro.authz.aop.AuthorizingAnnotationHandler.EmptyAuthorizationConfigPolicy;
+import org.apache.shiro.authz.aop.AuthorizingAnnotationHandler.EmptyAuthorizationConfigSwitch;
 import org.apache.shiro.subject.Subject;
+
+import static org.apache.shiro.lang.util.StringUtils.split;
 
 /**
  * Filter that allows access if the current user has the permissions specified by the mapped value, or denies access
@@ -34,11 +40,25 @@ public class PermissionsAuthorizationFilter extends AuthorizationFilter {
 
     //TODO - complete JavaDoc
 
+    @Delegate(types = EmptyAuthorizationConfigSwitch.class)
+    private final EmptyAuthorizationConfigPolicy emptyConfigPolicy =
+            new EmptyAuthorizationConfigPolicy();
+
+    @Override
+    public Filter processPathConfig(String path, String config) {
+        emptyConfigPolicy.warnIfEmptyConfig(split(config), "Path '" + path + "' of " + getClass().getSimpleName());
+        return super.processPathConfig(path, config);
+    }
+
     @Override
     public boolean isAccessAllowed(ServletRequest request, ServletResponse response, Object mappedValue) throws IOException {
 
         Subject subject = getSubject(request, response);
         String[] perms = (String[]) mappedValue;
+
+        if (emptyConfigPolicy.isEmptyConfigRejected(perms)) {
+            return false;
+        }
 
         boolean isPermitted = true;
         if (perms != null && perms.length > 0) {
