@@ -60,8 +60,8 @@ Limitations:
 * a class without a bean-defining annotation that is secured only through an interface or a superclass is not
   intercepted. In `annotated` bean discovery mode such a class is not a bean at all. In `all` mode, add a scope
   annotation to it, or annotate the class itself;
-* EJBs are intercepted when they carry a Shiro annotation themselves. An EJB secured only through an interface
-  or a superclass is not, so annotate the EJB class directly;
+* EJBs (`@Stateless`, `@Stateful`, `@Singleton`) secured through an interface or a superclass are
+  intercepted when the optional `shiro-ejb` module is added to the application. Without it, annotate the EJB class directly;
 * `final` classes cannot be intercepted.
 
 == Form resubmission

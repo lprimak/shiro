@@ -61,6 +61,17 @@ public class ShiroSecurityExtension implements Extension {
      */
     public <T> void addInheritedSecurity(@Observes @WithAnnotations({
             Scope.class, NormalScope.class, Stereotype.class}) ProcessAnnotatedType<T> pat) {
+        applyInheritedSecurity(pat);
+    }
+
+    /**
+     * Adds the security interceptor binding to the type if a superclass or an interface is secured.
+     * Lets other bean-defining annotations, such as the EJB ones, reuse the same rule.
+     *
+     * @param pat the type being processed
+     * @param <T> type of the processed class
+     */
+    public static <T> void applyInheritedSecurity(ProcessAnnotatedType<T> pat) {
         Class<?> type = pat.getAnnotatedType().getJavaClass();
         if (Stream.concat(Stream.of(type.getSuperclass()), Stream.of(type.getInterfaces()))
                 .filter(parent -> parent != null && parent != Object.class)
