@@ -18,13 +18,9 @@
  */
 package org.apache.shiro.aop;
 
-import org.apache.commons.lang3.ClassUtils;
-import org.apache.commons.lang3.ClassUtils.Interfaces;
-
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.Objects;
-import java.util.stream.StreamSupport;
 
 /**
  * Default {@code AnnotationResolver} implementation that locates the annotation through
@@ -66,7 +62,7 @@ public class DefaultAnnotationResolver implements AnnotationResolver {
      */
     @Deprecated(since = "3.0.2")
     public static Annotation getAnnotationFromClassHierarchy(Class<?> targetClass, Class<? extends Annotation> clazz) {
-        return StreamSupport.stream(ClassUtils.hierarchy(targetClass, Interfaces.INCLUDE).spliterator(), false)
+        return AnnotationHierarchy.hierarchy(targetClass).stream()
                 .map(type -> AnnotationHierarchy.findDeclared(type, clazz)).filter(Objects::nonNull).findFirst().orElse(null);
     }
 }

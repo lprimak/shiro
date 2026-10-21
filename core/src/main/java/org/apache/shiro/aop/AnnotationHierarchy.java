@@ -19,16 +19,11 @@
 package org.apache.shiro.aop;
 
 import lombok.NonNull;
-import lombok.experimental.UtilityClass;
-import org.apache.commons.lang3.ClassUtils;
-import org.apache.commons.lang3.ClassUtils.Interfaces;
-import org.apache.commons.lang3.reflect.MethodUtils;
-
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +31,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.StreamSupport;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 /**
  * Framework-independent, cached discovery of annotations across a type hierarchy.
@@ -60,8 +56,6 @@ import java.util.stream.StreamSupport;
  *
  * @since 3.0.2
  */
-@UtilityClass
-@SuppressWarnings("checkstyle:HideUtilityClassConstructor")
 public final class AnnotationHierarchy {
     private static final String JAVA_LANG_ANNOTATION = "java.lang.annotation.";
 
@@ -71,6 +65,9 @@ public final class AnnotationHierarchy {
             return new Cache(type);
         }
     };
+
+    private AnnotationHierarchy() {
+    }
 
     /**
      * Cache key.
@@ -83,8 +80,7 @@ public final class AnnotationHierarchy {
     private record Cache(List<Class<?>> hierarchy, Map<Key, Optional<Annotation>> found,
                          Map<Class<? extends Annotation>, Boolean> own) {
         Cache(Class<?> type) {
-            this(StreamSupport.stream(ClassUtils.hierarchy(type, Interfaces.INCLUDE).spliterator(), false)
-                    .filter(candidate -> candidate != Object.class).toList(),
+            this(AnnotationHierarchy.hierarchy(type).stream().filter(candidate -> candidate != Object.class).toList(),
                     new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
         }
     }
@@ -138,37 +134,44 @@ public final class AnnotationHierarchy {
     private static <A extends Annotation> A searchInvocation(Method method, Class<?> targetClass,
                                                              List<Class<?>> hierarchy, Class<A> annotationType) {
         A annotation = findDeclared(method, annotationType);
-        if (annotation != null) {
+        if (annotation != null || !isPresent(targetClass, annotationType)) {
             return annotation;
         }
-        if (!isPresent(targetClass, annotationType)) {
-            return null;
-        }
-        Map<Class<?>, Method> overridden = overriddenMethods(method, targetClass);
-        for (Class<?> type : hierarchy) {
-            Method declared = overridden.get(type);
-            annotation = declared != null ? findDeclared(declared, annotationType) : null;
-            annotation = annotation != null ? annotation : findDeclared(type, annotationType);
-            if (annotation != null) {
-                return annotation;
-            }
-        }
-        return null;
+        return hierarchy.stream().map(type -> declaredFor(type, method).map(declared -> findDeclared(declared, annotationType))
+                .filter(Objects::nonNull).findFirst().or(() -> Optional.ofNullable(findDeclared(type, annotationType))))
+                .flatMap(Optional::stream).findFirst().orElse(null);
     }
 
     /**
-     * Maps each type to the method it declares for the invoked method's signature.
-     * The search starts from the most specific declaration visible from the target class.
-     * Generic overrides and bridge methods are included.
+     * Lists the class, its interfaces, its superclass, the superclass's interfaces and so on, most specific first.
+     * Each type appears once.
      */
-    private static Map<Class<?>, Method> overriddenMethods(Method invoked, Class<?> targetClass) {
-        Method mostSpecific = Optional.ofNullable(
-                MethodUtils.getMatchingMethod(targetClass, invoked.getName(), invoked.getParameterTypes())).orElse(invoked);
-        Map<Class<?>, Method> result = new HashMap<>();
-        MethodUtils.getOverrideHierarchy(mostSpecific, Interfaces.INCLUDE)
-                .forEach(method -> result.putIfAbsent(method.getDeclaringClass(), method));
-        result.putIfAbsent(invoked.getDeclaringClass(), invoked);
-        return result;
+    static List<Class<?>> hierarchy(Class<?> type) {
+        return Stream.<Class<?>>iterate(type, Objects::nonNull, Class::getSuperclass)
+                .flatMap(AnnotationHierarchy::withInterfaces).distinct().toList();
+    }
+
+    private static Stream<Class<?>> withInterfaces(Class<?> type) {
+        return Stream.concat(Stream.of(type), Arrays.stream(type.getInterfaces()).flatMap(AnnotationHierarchy::withInterfaces));
+    }
+
+    /**
+     * The methods the type declares for the invoked method's signature.
+     * An exact signature match wins, otherwise every method with the same name whose parameters are wider is taken,
+     * which covers generic overrides, such as {@code save(T)} implemented by {@code save(String)}.
+     * When several overloads qualify, none can be ruled out, so the annotation of them applies.
+     * This errs towards protecting the method, never towards leaving it unprotected.
+     */
+    private static Stream<Method> declaredFor(Class<?> type, Method invoked) {
+        Class<?>[] parameters = invoked.getParameterTypes();
+        List<Method> candidates = Arrays.stream(type.getDeclaredMethods())
+                .filter(candidate -> candidate.getName().equals(invoked.getName())
+                        && !Modifier.isPrivate(candidate.getModifiers()) && !Modifier.isStatic(candidate.getModifiers())
+                        && candidate.getParameterCount() == parameters.length && IntStream.range(0, parameters.length)
+                        .allMatch(i -> candidate.getParameterTypes()[i].isAssignableFrom(parameters[i]))).toList();
+        List<Method> exact = candidates.stream()
+                .filter(candidate -> Arrays.equals(candidate.getParameterTypes(), parameters)).toList();
+        return (exact.isEmpty() ? candidates : exact).stream();
     }
 
     private static <A extends Annotation> A findDeclared(AnnotatedElement element, Class<A> annotationType,

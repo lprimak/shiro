@@ -18,7 +18,6 @@
  */
 package org.apache.shiro.authz.aop;
 
-import lombok.experimental.UtilityClass;
 import org.apache.shiro.aop.AnnotationResolver;
 import org.apache.shiro.authz.annotation.RequiresAuthentication;
 import org.apache.shiro.authz.annotation.RequiresGuest;
@@ -43,8 +42,6 @@ import java.util.stream.Stream;
  *
  * @since 3.0.2
  */
-@UtilityClass
-@SuppressWarnings("checkstyle:HideUtilityClassConstructor")
 public final class AuthorizationAnnotations {
     private static final String JSR250_PROBE = "jakarta.annotation.security.RolesAllowed";
 
@@ -67,6 +64,9 @@ public final class AuthorizationAnnotations {
 
     private static final List<Class<? extends Annotation>> ALL_TYPES =
             ALL.stream().<Class<? extends Annotation>>map(Registration::type).toList();
+
+    private AuthorizationAnnotations() {
+    }
 
     private interface Factory extends Function<AnnotationResolver, AuthorizingAnnotationMethodInterceptor> {
     }

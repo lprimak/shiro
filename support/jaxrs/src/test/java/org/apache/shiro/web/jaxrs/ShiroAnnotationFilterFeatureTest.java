@@ -31,9 +31,14 @@ import org.apache.shiro.aop.fixtures.Unsecured;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.lang.annotation.Annotation;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Method;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -48,6 +53,23 @@ class ShiroAnnotationFilterFeatureTest {
         @RolesAllowed("admin")
         public String admin() {
             return "admin";
+        }
+    }
+
+    /** An annotation from some third-party library that is not related to Shiro. */
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface ForeignAnnotation {
+        Class<?> handler() default Object.class;
+    }
+
+    @ForeignAnnotation(handler = Runnable.class)
+    interface ForeignInterface {
+    }
+
+    static class ForeignResource implements ForeignInterface {
+        @ForeignAnnotation
+        public String foreign() {
+            return "foreign";
         }
     }
 
@@ -98,5 +120,17 @@ class ShiroAnnotationFilterFeatureTest {
     @Test
     void unsecuredResource() throws NoSuchMethodException {
         verify(configure(Unsecured.class, "open", true), never()).register(any(), anyInt());
+    }
+
+    @Test
+    void foreignAnnotationsAreIgnored() throws NoSuchMethodException {
+        verify(configure(ForeignResource.class, "foreign", true), never()).register(any(), anyInt());
+    }
+
+    @Test
+    void onlyRegisteredAnnotationsGetAHandler() throws NoSuchMethodException {
+        Annotation foreign = ForeignResource.class.getMethod("foreign").getAnnotation(ForeignAnnotation.class);
+        assertThatThrownBy(() -> new AnnotationAuthorizationFilter(List.of(foreign)))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }
