@@ -156,6 +156,7 @@ public class WildcardPermission implements Permission, Serializable {
         }
 
         if (!caseSensitive) {
+            // Locale.ROOT (as in SHIRO-415/SHIRO-483): under certain non-English default locales "ADMIN" would become "admın"
             wildcardString = wildcardString.toLowerCase(Locale.ROOT);
         }
 
