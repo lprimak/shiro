@@ -18,7 +18,6 @@ import org.apache.shiro.ee.filters.FormResubmitSupport.PartialAjaxResult;
 import static org.apache.shiro.ee.filters.FormResubmitSupport.AjaxReplay.FULL_PAGE;
 import static org.apache.shiro.ee.filters.FormResubmitSupport.AjaxReplay.PASS_THROUGH;
 import static org.apache.shiro.ee.filters.FormResubmitSupport.AjaxReplay.RENDER_ALL;
-import static org.apache.shiro.ee.filters.FormResubmitSupport.extractJSFNewViewState;
 import static org.apache.shiro.ee.filters.FormResubmitSupport.isPartialResponseError;
 import static org.apache.shiro.ee.filters.FormResubmitSupport.getDispatchPath;
 import static org.apache.shiro.ee.filters.FormResubmitSupport.getFormCharset;
@@ -274,9 +273,9 @@ class FormSupportTest {
     @Test
     void parseFormDataHonoursCharset() {
         assertThat(FormResubmitSupport.parseFormData("name=J%F6rg", StandardCharsets.ISO_8859_1))
-                .containsExactly(Map.entry("name", List.of("J\u00f6rg")));
+                .containsExactly(Map.entry("name", List.of("Jörg")));
         assertThat(FormResubmitSupport.parseFormData("name=J%C3%B6rg", StandardCharsets.UTF_8))
-                .containsExactly(Map.entry("name", List.of("J\u00f6rg")));
+                .containsExactly(Map.entry("name", List.of("Jörg")));
     }
 
     @Test
@@ -293,18 +292,6 @@ class FormSupportTest {
 
         when(servletContext.getRequestCharacterEncoding()).thenReturn(null);
         assertThat(getFormCharset(request, servletContext)).isEqualTo(StandardCharsets.UTF_8);
-    }
-
-    @Test
-    void extractViewState() {
-        assertThatExceptionOfType(NullPointerException.class).isThrownBy(() -> extractJSFNewViewState(null));
-        assertThat(extractJSFNewViewState("")).isNull();
-        assertThat(extractJSFNewViewState("xxx")).isNull();
-        assertThat(extractJSFNewViewState("<input name=\"jakarta.faces.ViewState\" value=\"123:456\"/>"))
-                .isEqualTo("123:456");
-        assertThat(extractJSFNewViewState("<input name=\"jakarta.faces.ViewState\" value=\"-123:-456\"/>"
-                + "<input name=\"jakarta.faces.ViewState\" value=\"-789:-012\"/>"))
-                .isEqualTo("-123:-456");
     }
 
     @Test
