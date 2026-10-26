@@ -21,6 +21,7 @@ package org.apache.shiro.web.jaxrs;
 
 import org.apache.shiro.authz.aop.AuthorizationAnnotations;
 import org.apache.shiro.authz.aop.AuthorizingAnnotationHandler;
+import org.apache.shiro.authz.aop.AuthorizingAnnotationHandler.AuthorizationConfigPolicy;
 
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerRequestFilter;
@@ -46,6 +47,7 @@ public class AnnotationAuthorizationFilter implements ContainerRequestFilter {
         Map<AuthorizingAnnotationHandler, Annotation> authChecks =
                 new HashMap<AuthorizingAnnotationHandler, Annotation>(authzSpecs.size());
         for (Annotation authSpec : authzSpecs) {
+            AuthorizationConfigPolicy.validate(authSpec);
             authChecks.put(AuthorizationAnnotations
                     .createMethodInterceptors(null, List.of(authSpec.annotationType())).get(0).getHandler(), authSpec);
         }

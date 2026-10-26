@@ -25,6 +25,7 @@ import org.apache.shiro.aop.AnnotationMethodInterceptor;
 import org.apache.shiro.aop.AnnotationResolver;
 import org.apache.shiro.aop.DefaultAnnotationResolver;
 import org.apache.shiro.authz.aop.AuthorizationAnnotations;
+import org.apache.shiro.authz.aop.AuthorizingAnnotationHandler.AuthorizationConfigPolicy;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
@@ -57,7 +58,17 @@ public class ShiroAopModule extends AbstractModule {
     protected final void bindShiroInterceptor(final AnnotationMethodInterceptor methodInterceptor) {
         Class<? extends Annotation> annotation = methodInterceptor.getHandler().getAnnotationClass();
         Matcher<Class<?>> securedClasses = type -> AnnotationHierarchy.isPresent(type, annotation);
-        bindInterceptor(securedClasses, ENHANCEABLE_METHODS, new AopAllianceMethodInterceptorAdapter(methodInterceptor));
+        Matcher<Method> enhanceableMethods = method -> {
+            if (ENHANCEABLE_METHODS.matches(method)) {
+                Annotation authorization = AnnotationHierarchy.findAnnotation(method, method.getDeclaringClass(), annotation);
+                if (authorization != null) {
+                    AuthorizationConfigPolicy.validate(authorization);
+                }
+                return true;
+            }
+            return false;
+        };
+        bindInterceptor(securedClasses, enhanceableMethods, new AopAllianceMethodInterceptorAdapter(methodInterceptor));
     }
 
     protected AnnotationResolver createAnnotationResolver() {

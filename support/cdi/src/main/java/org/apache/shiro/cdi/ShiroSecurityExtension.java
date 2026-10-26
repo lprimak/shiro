@@ -32,6 +32,7 @@ import org.apache.shiro.authz.annotation.RequiresGuest;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.apache.shiro.authz.annotation.RequiresRoles;
 import org.apache.shiro.authz.annotation.RequiresUser;
+import org.apache.shiro.authz.aop.AuthorizingAnnotationHandler.AuthorizationConfigPolicy;
 import org.apache.shiro.authz.aop.AuthorizationAnnotations;
 
 /**
@@ -52,6 +53,9 @@ public class ShiroSecurityExtension implements Extension {
             RequiresAuthentication.class, RequiresGuest.class, RequiresPermissions.class,
             RequiresRoles.class, RequiresUser.class, RolesAllowed.class,
             PermitAll.class, DenyAll.class}) ProcessAnnotatedType<T> pat) {
+        pat.getAnnotatedType().getAnnotations().forEach(AuthorizationConfigPolicy::validate);
+        pat.getAnnotatedType().getMethods().forEach(method ->
+                method.getAnnotations().forEach(AuthorizationConfigPolicy::validate));
         pat.setAnnotatedType(new AnnotatedTypeWrapper<>(pat.getAnnotatedType(), SHIRO_SECURE));
     }
 
